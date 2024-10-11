@@ -54,10 +54,11 @@ app.get('/klanten', (req, res) => {
 });
 
 app.post('/klanten', (req, res) => {
-    const { naam } = req.body;
-    db.query('INSERT INTO klanten (naam) VALUES (?)', [naam], (err, results) => {
+    const { naam, wachtwoord } = req.body;
+    db.query('INSERT INTO klanten (naam, wachtwoord) VALUES (?, ?)',
+         [naam, wachtwoord], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, naam });
+        res.json({ id: results.insertId, naam, wachtwoord });
     });
 });
 
