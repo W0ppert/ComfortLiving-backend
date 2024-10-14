@@ -54,11 +54,11 @@ app.get('/klanten', (req, res) => {
 });
 
 app.post('/klanten', (req, res) => {
-    const { naam, wachtwoord } = req.body;
-    db.query('INSERT INTO klanten (naam, wachtwoord) VALUES (?, ?)',
-         [naam, wachtwoord], (err, results) => {
+    const { voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    db.query('INSERT INTO klanten (voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?)',
+         [voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, naam, wachtwoord });
+        res.json({ id: results.insertId, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord });
     });
 });
 
