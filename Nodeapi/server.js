@@ -129,6 +129,23 @@ app.post('/stappen', (req, res) => {
     });
 });
 
+app.get('/inschrijvingen', (req, res) => {
+    db.query('SELECT * FROM inschrijvingen', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
+app.post('/inschrijvingen', (req, res) => {
+    const { hoeveel_personen, jaar_inkomen, datum } = req.body;
+    db.query('INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen) VALUES (?, €?)', 
+    [hoeveel_personen, jaar_inkomen], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ hoeveel_personen, jaar_inkomen });
+    });
+});
+
+
 // Start the server
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);
