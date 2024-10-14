@@ -1,9 +1,8 @@
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcrypt');
 const db = require('./db'); // Import the database connection
 const port = 3000;
-
-
 
 // Create an Express app
 const app = express();
@@ -46,19 +45,67 @@ app.post('/externepartij', (req, res) => {
 });
 
 // Klanten
-app.get('/klanten', (req, res) => {
-    db.query('SELECT * FROM klanten', (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json(results);
+app.post('/klanten/login', async (req, res) => {
+    const { voornaam, wachtwoord } = req.body;
+
+    db.query('SELECT * FROM klanten WHERE voornaam = ?', [voornaam], async (err, results) => {
+        if (err) {
+            console.log('Database query error:', err);
+            return res.status(500).send('Er is een fout opgetreden.');
+        }
+
+        if (results.length === 0) {
+            return res.status(400).send('Gebruiker niet gevonden.');
+        }
+
+        const klant = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
+            console.log('Entered Password:', wachtwoord);
+            console.log('Stored Hashed Password:', klant.wachtwoord);
+            console.log('Password Match:', isMatch); // This should be true if the password matches
+
+            if (!isMatch) {
+                return res.status(400).send('Onjuist wachtwoord.');
+            }
+
+            res.send('Ingelogd!');
+        } catch (compareError) {
+            console.log('Error comparing passwords:', compareError);
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
     });
 });
 
-app.post('/klanten', (req, res) => {
-    const { naam } = req.body;
-    db.query('INSERT INTO klanten (naam) VALUES (?)', [naam], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, naam });
-    });
+
+app.post('/klanten', async (req, res) => {
+    const { voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+
+    try {
+        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
+        db.query(
+            'INSERT INTO klanten (voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            (err, results) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+                res.json({
+                    id: results.insertId,
+                    voornaam,
+                    achternaam,
+                    geslacht,
+                    geboortedatum,
+                    huidig_woonadres,
+                    telefoonnummer
+                });
+            }
+        );
+    } catch (err) {
+        console.error('Error hashing password: ', err);
+        res.status(500).send('Er is een fout opgetreden bij het hashen van het wachtwoord.');
+    }
 });
 
 // Panden
@@ -125,6 +172,22 @@ app.post('/stappen', (req, res) => {
     [omschrijving, serviceverzoek_id, externepartij_id, datum], (err, results) => {
         if (err) return res.status(500).send(err);
         res.json({ id: results.insertId, omschrijving, serviceverzoek_id, externepartij_id, datum });
+    });
+});
+
+app.get('/inschrijvingen', (req, res) => {
+    db.query('SELECT * FROM inschrijvingen', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
+app.post('/inschrijvingen', (req, res) => {
+    const { hoeveel_personen, jaar_inkomen, datum } = req.body;
+    db.query('INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen) VALUES (?, ?)', 
+    [hoeveel_personen, jaar_inkomen], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ hoeveel_personen, jaar_inkomen });
     });
 });
 
