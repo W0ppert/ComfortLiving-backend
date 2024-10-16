@@ -45,6 +45,13 @@ app.post('/externepartij', (req, res) => {
 });
 
 // Klanten
+app.get('/klanten', (req, res) => {
+    db.query('SELECT * FROM klanten', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
 app.post('/klanten/login', async (req, res) => {
     const { email, wachtwoord } = req.body;
 
