@@ -94,19 +94,20 @@ app.get('/klanten/:id', (req, res) => {
 
 
 app.post('/klanten', async (req, res) => {
-    const { voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    const { email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
-            'INSERT INTO klanten (voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             (err, results) => {
                 if (err) {
                     return res.status(500).send(err);
                 }
                 res.json({
                     id: results.insertId,
+                    email,
                     voornaam,
                     achternaam,
                     geslacht,
@@ -197,7 +198,7 @@ app.get('/inschrijvingen', (req, res) => {
 });
 
 app.post('/inschrijvingen', (req, res) => {
-    const { hoeveel_personen, jaar_inkomen, datum } = req.body;
+    const { hoeveel_personen, jaar_inkomen } = req.body;
     db.query('INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen) VALUES (?, ?)', 
     [hoeveel_personen, jaar_inkomen], (err, results) => {
         if (err) return res.status(500).send(err);
