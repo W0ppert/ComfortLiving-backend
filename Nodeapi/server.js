@@ -130,6 +130,15 @@ app.get('/panden', (req, res) => {
         res.json(results);
     });
 });
+app.get('/panden/:id', (req, res) => {
+    const id = req.params.id;
+    db.query('SELECT * FROM panden WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.length === 0) return res.status(404).send('Pand niet gevonden');
+        const pand = results[0];
+        res.json(pand);
+    });
+});
 
 app.post('/panden', (req, res) => {
     const { postcode, straat, huisnummer, plaats } = req.body;
