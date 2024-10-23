@@ -3,11 +3,29 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const db = require('./db'); // Import the database connection
 const port = 3000;
+const nodemailer = require('nodemailer'); // Import nodemailer for sending emails
+require('dotenv').config();
+
+
+
 
 // Create an Express app
 const app = express();
 app.use(cors()); // To allow cross-origin requests
 app.use(express.json()); // To parse JSON bodies
+
+
+// Set up a transporter using your environment variables
+const transporter = nodemailer.createTransport({
+ host: process.env.EMAIL_HOST,
+ port: process.env.EMAIL_PORT,
+ secure: process.env.EMAIL_SECURE === 'true', // Convert string to boolean
+ auth: {
+     user: process.env.EMAIL_USER,
+     pass: process.env.EMAIL_PASS
+ }
+});
+
 
 // CRUD operations for each table
 
@@ -101,10 +119,27 @@ app.post('/klanten', async (req, res) => {
         db.query(
             'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
             [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
-            (err, results) => {
+            async (err, results) => {
                 if (err) {
                     return res.status(500).send(err);
                 }
+
+                // After successfully registering the user, send an email
+                const mailOptions = {
+                    from: '"Comfortliving" <your-email@example.com>', // Sender address
+                    to: email, // Receiver's email
+                    subject: 'Welcome to Our Platform', // Subject line
+                    text: `Hello ${voornaam},\n\nThank you for registering with us!`, // Plain text body
+                    html: `<p>Hello ${voornaam},</p><p>Thank you for registering with us!</p>` // HTML body
+                };
+
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log('Registration email sent to:', email);
+                } catch (mailError) {
+                    console.error('Error sending email:', mailError);
+                }
+
                 res.json({
                     id: results.insertId,
                     email,
@@ -119,7 +154,7 @@ app.post('/klanten', async (req, res) => {
         );
     } catch (err) {
         console.error('Error hashing password: ', err);
-        res.status(500).send('Er is een fout opgetreden bij het hashen van het wachtwoord.');
+        res.status(500).send('Error occurred during registration.');
     }
 });
 
