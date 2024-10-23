@@ -115,6 +115,26 @@ app.post('/klanten', async (req, res) => {
         res.status(500).send('Er is een fout opgetreden bij het hashen van het wachtwoord.');
     }
 });
+app.delete('/klanten/:email', (req, res) => {
+    const email = req.params.email;
+
+    // SQL query to delete the customer by email
+    db.query('DELETE FROM klanten WHERE email = ?', [email], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de klant.', error: err });
+        }
+        
+        // Check if a row was deleted
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: `Geen klant gevonden met email: ${email}` });
+        }
+
+        // Send success response
+        res.status(200).send({ message: `Klant met email ${email} is succesvol verwijderd.` });
+    });
+});
+
+
 
 // Panden
 app.get('/panden', (req, res) => {
@@ -157,14 +177,14 @@ app.get('/serviceverzoek', (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', (req, res) => {
-    const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
-    [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
-    });
-});
+// app.post('/serviceverzoek', (req, res) => {
+//     const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
+//     db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
+//     [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
+//         if (err) return res.status(500).send(err);
+//         res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
+//     });
+// });
 
 // Stappen
 app.get('/stappen', (req, res) => {
@@ -198,8 +218,15 @@ app.post('/inschrijvingen', (req, res) => {
         res.json({ hoeveel_personen, jaar_inkomen });
     });
 });
-
-// Start the server
+app.post('/serviceverzoek', (req, res) => {
+    const { omschrijving } = req.body;
+    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
+    [omschrijving], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ id: results.insertId, omschrijving });
+    });
+});
+// Start the serverx
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);
 });
