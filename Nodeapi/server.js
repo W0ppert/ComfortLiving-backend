@@ -44,6 +44,7 @@ app.post('/externepartij', (req, res) => {
     });
 });
 
+
 // Klanten
 app.get('/klanten', (req, res) => {
     db.query('SELECT * FROM klanten', (err, results) => {
@@ -51,6 +52,7 @@ app.get('/klanten', (req, res) => {
         res.json(results);
     });
 });
+
 
 app.post('/klanten/login', async (req, res) => {
     const { email, wachtwoord } = req.body;
@@ -69,19 +71,34 @@ app.post('/klanten/login', async (req, res) => {
 
         try {
             const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
-            console.log('Entered Password:', wachtwoord);
-            console.log('Stored Hashed Password:', klant.wachtwoord);
-            console.log('Password Match:', isMatch); // This should be true if the password matches
+            console.log('Password Match:', isMatch);
 
             if (!isMatch) {
                 return res.status(400).send('Onjuist wachtwoord.');
             }
 
-            res.send('Ingelogd!');
+            // Verwijder het wachtwoord uit de klantgegevens voordat je ze terugstuurt
+            delete klant.wachtwoord;
+
+            // Log de volledige gebruikersgegevens in de console
+            console.log('User data:', JSON.stringify(klant, null, 2));
+
+            // Stuur de volledige gebruikersgegevens terug als JSON
+            res.json(klant);
         } catch (compareError) {
             console.log('Error comparing passwords:', compareError);
             return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
         }
+    });
+});
+app.get('/klanten/:id', (req, res) => {
+    const userId = req.params.id;
+    db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.length === 0) return res.status(404).send('Gebruiker niet gevonden');
+        const user = results[0];
+        delete user.wachtwoord; // Verwijder het wachtwoord voordat je de gegevens terugstuurt
+        res.json(user);
     });
 });
 
@@ -141,6 +158,15 @@ app.get('/panden', (req, res) => {
     db.query('SELECT * FROM panden', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
+    });
+});
+app.get('/panden/:id', (req, res) => {
+    const id = req.params.id;
+    db.query('SELECT * FROM panden WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.length === 0) return res.status(404).send('Pand niet gevonden');
+        const pand = results[0];
+        res.json(pand);
     });
 });
 
