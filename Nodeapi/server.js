@@ -87,13 +87,13 @@ app.post('/klanten/login', async (req, res) => {
 
 
 app.post('/klanten', async (req, res) => {
-    const { email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            [email, voornaam, tussenvoegsel, achternaam,  geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             (err, results) => {
                 if (err) {
                     return res.status(500).send(err);
@@ -102,6 +102,7 @@ app.post('/klanten', async (req, res) => {
                     id: results.insertId,
                     email,
                     voornaam,
+                    tussenvoegsel,
                     achternaam,
                     geslacht,
                     geboortedatum,
