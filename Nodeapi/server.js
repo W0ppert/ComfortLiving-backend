@@ -10,8 +10,14 @@ require('dotenv').config();
 
 
 // Create an Express app
+const corsOptions = {
+    origin: 'http://localhost:3000/', // Specifieke origin
+    credentials: true // Toestaan van credentials
+  };
+
+  // Create an Express app
 const app = express();
-app.use(cors()); // To allow cross-origin requests
+app.use(cors(corsOptions)); // To allow cross-origin requests
 app.use(express.json()); // To parse JSON bodies
 
 
@@ -61,6 +67,16 @@ app.post('/externepartij', (req, res) => {
         res.json({ id: results.insertId, naam, email, telefoonnummer });
     });
 });
+
+
+// Klanten
+app.get('/klanten', (req, res) => {
+    db.query('SELECT * FROM klanten', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
 
 app.post('/klanten/login', async (req, res) => {
     const { email, wachtwoord } = req.body;
@@ -112,14 +128,16 @@ app.get('/klanten/:id', (req, res) => {
 
 
 app.post('/klanten', async (req, res) => {
-    const { email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+
             [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
+
                 if (err) {
                     return res.status(500).send(err);
                 }
@@ -147,6 +165,7 @@ app.post('/klanten', async (req, res) => {
                     id: results.insertId,
                     email,
                     voornaam,
+                    tussenvoegsel,
                     achternaam,
                     geslacht,
                     geboortedatum,
@@ -160,6 +179,7 @@ app.post('/klanten', async (req, res) => {
         res.status(500).send('Error occurred during registration.');
     }
 });
+
 
 app.get('/verify-email/:id', (req, res) => {
     const klantId = req.params.id;
@@ -178,6 +198,87 @@ app.get('/verify-email/:id', (req, res) => {
         res.send('Email verified successfully! You can now log in.');
     });
 });
+
+
+app.delete('/klanten/:id', (req, res) => {
+    const id = req.params.id;
+
+    // Verwijder eerst gerelateerde serviceverzoeken
+    db.query('DELETE FROM serviceverzoek WHERE contract_Id IN (SELECT id FROM contracten WHERE klantid = ?);', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de serviceverzoeken.', error: err });
+        }
+
+        // Verwijder vervolgens de gerelateerde contracten
+        db.query('DELETE FROM contracten WHERE klantid = ?;', [id], (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de contracten.', error: err });
+            }
+
+            // Nu de klant zelf verwijderen
+            db.query('DELETE FROM klanten WHERE id = ?;', [id], (err, results) => {
+                if (err) {
+                    return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de klant.', error: err });
+                }
+
+                // Controleer of een rij werd verwijderd
+                if (results.affectedRows === 0) {
+                    return res.status(404).send({ message: `Geen klant gevonden met id: ${id}` });
+                }
+
+                // Stuur een succesbericht terug
+                res.status(200).send({ message: `Klant met id ${id} is succesvol verwijderd, inclusief bijbehorende contracten en serviceverzoeken.` });
+            });
+        });
+    });
+});
+
+app.put('/klanten/:id', (req, res) => {
+    const { id } = req.params;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer } = req.body;
+
+    // Haal de bestaande klantgegevens op
+    db.query('SELECT * FROM klanten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        if (results.length === 0) {
+            return res.status(404).send('Klant niet gevonden.');
+        }
+
+        const klant = results[0];
+
+        // Alleen de velden bijwerken die zijn meegegeven, de rest behouden
+        const updatedKlant = {
+            email: email || klant.email,
+            voornaam: voornaam || klant.voornaam,
+            tussenvoegsel: tussenvoegsel || klant.tussenvoegsel,
+            achternaam: achternaam || klant.achternaam,
+            geslacht: geslacht || klant.geslacht,
+            geboortedatum: geboortedatum || klant.geboortedatum,
+            huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
+            telefoonnummer: telefoonnummer || klant.telefoonnummer
+        };
+
+        // Update de klant in de database
+        db.query(
+            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ? WHERE id = ?',
+            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, id],
+            (err, updateResults) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+                res.json({
+                    message: 'Klantgegevens succesvol bijgewerkt',
+                    id,
+                    ...updatedKlant
+                });
+            }
+        );
+    });
+});
+
+
 
 
 // Panden
@@ -230,14 +331,14 @@ app.get('/serviceverzoek', (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', (req, res) => {
-    const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
-    [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
-    });
-});
+// app.post('/serviceverzoek', (req, res) => {
+//     const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
+//     db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
+//     [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
+//         if (err) return res.status(500).send(err);
+//         res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
+//     });
+// });
 
 // Stappen
 app.get('/stappen', (req, res) => {
@@ -271,8 +372,15 @@ app.post('/inschrijvingen', (req, res) => {
         res.json({ hoeveel_personen, jaar_inkomen });
     });
 });
-
-// Start the server
+app.post('/serviceverzoek', (req, res) => {
+    const { omschrijving } = req.body;
+    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
+    [omschrijving], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ id: results.insertId, omschrijving });
+    });
+});
+// Start the serverx
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);
 });
