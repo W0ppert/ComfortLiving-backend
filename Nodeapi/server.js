@@ -133,24 +133,86 @@ app.post('/klanten', async (req, res) => {
         res.status(500).send('Er is een fout opgetreden bij het hashen van het wachtwoord.');
     }
 });
-app.delete('/klanten/:email', (req, res) => {
-    const email = req.params.email;
 
-    // SQL query to delete the customer by email
-    db.query('DELETE FROM klanten WHERE email = ?', [email], (err, results) => {
+app.delete('/klanten/:id', (req, res) => {
+    const id = req.params.id;
+
+    // Verwijder eerst gerelateerde serviceverzoeken
+    db.query('DELETE FROM serviceverzoek WHERE contract_Id IN (SELECT id FROM contracten WHERE klantid = ?);', [id], (err, results) => {
         if (err) {
-            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de klant.', error: err });
-        }
-        
-        // Check if a row was deleted
-        if (results.affectedRows === 0) {
-            return res.status(404).send({ message: `Geen klant gevonden met email: ${email}` });
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de serviceverzoeken.', error: err });
         }
 
-        // Send success response
-        res.status(200).send({ message: `Klant met email ${email} is succesvol verwijderd.` });
+        // Verwijder vervolgens de gerelateerde contracten
+        db.query('DELETE FROM contracten WHERE klantid = ?;', [id], (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de contracten.', error: err });
+            }
+
+            // Nu de klant zelf verwijderen
+            db.query('DELETE FROM klanten WHERE id = ?;', [id], (err, results) => {
+                if (err) {
+                    return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de klant.', error: err });
+                }
+
+                // Controleer of een rij werd verwijderd
+                if (results.affectedRows === 0) {
+                    return res.status(404).send({ message: `Geen klant gevonden met id: ${id}` });
+                }
+
+                // Stuur een succesbericht terug
+                res.status(200).send({ message: `Klant met id ${id} is succesvol verwijderd, inclusief bijbehorende contracten en serviceverzoeken.` });
+            });
+        });
     });
 });
+
+app.put('/klanten/:id', (req, res) => {
+    const { id } = req.params;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer } = req.body;
+
+    // Haal de bestaande klantgegevens op
+    db.query('SELECT * FROM klanten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        if (results.length === 0) {
+            return res.status(404).send('Klant niet gevonden.');
+        }
+
+        const klant = results[0];
+
+        // Alleen de velden bijwerken die zijn meegegeven, de rest behouden
+        const updatedKlant = {
+            email: email || klant.email,
+            voornaam: voornaam || klant.voornaam,
+            tussenvoegsel: tussenvoegsel || klant.tussenvoegsel,
+            achternaam: achternaam || klant.achternaam,
+            geslacht: geslacht || klant.geslacht,
+            geboortedatum: geboortedatum || klant.geboortedatum,
+            huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
+            telefoonnummer: telefoonnummer || klant.telefoonnummer
+        };
+
+        // Update de klant in de database
+        db.query(
+            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ? WHERE id = ?',
+            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, id],
+            (err, updateResults) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+                res.json({
+                    message: 'Klantgegevens succesvol bijgewerkt',
+                    id,
+                    ...updatedKlant
+                });
+            }
+        );
+    });
+});
+
+
 
 
 
