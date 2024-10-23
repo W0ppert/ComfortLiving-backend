@@ -3,11 +3,35 @@ const cors = require('cors');
 const bcrypt = require('bcrypt');
 const db = require('./db'); // Import the database connection
 const port = 3000;
+const nodemailer = require('nodemailer'); // Import nodemailer for sending emails
+require('dotenv').config();
+
+
+
 
 // Create an Express app
+const corsOptions = {
+    origin: 'http://localhost:3000/', // Specifieke origin
+    credentials: true // Toestaan van credentials
+  };
+
+  // Create an Express app
 const app = express();
-app.use(cors()); // To allow cross-origin requests
+app.use(cors(corsOptions)); // To allow cross-origin requests
 app.use(express.json()); // To parse JSON bodies
+
+
+// Set up a transporter using your environment variables
+const transporter = nodemailer.createTransport({
+ host: process.env.EMAIL_HOST,
+ port: process.env.EMAIL_PORT,
+ secure: process.env.EMAIL_SECURE === 'true', // Convert string to boolean
+ auth: {
+     user: process.env.EMAIL_USER,
+     pass: process.env.EMAIL_PASS
+ }
+});
+
 
 // CRUD operations for each table
 
@@ -110,11 +134,33 @@ app.post('/klanten', async (req, res) => {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [email, voornaam, tussenvoegsel, achternaam,  geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
-            (err, results) => {
+
+            [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            async (err, results) => {
+
                 if (err) {
                     return res.status(500).send(err);
                 }
+
+                // Create the verification link
+                const verificationLink = `http://localhost:3000/verify-email/${results.insertId}`;
+
+                // Email options
+                const mailOptions = {
+                    from: '"Comfortliving" <your-email@example.com>',
+                    to: email,
+                    subject: 'Verify Your Email Address',
+                    html: `<p>Hello ${voornaam},</p><p>Please verify your email by clicking the link: <a href="${verificationLink}">Verify Email</a></p>`
+                };
+
+                // Send the email
+                try {
+                    await transporter.sendMail(mailOptions);
+                    console.log('Verification email sent to:', email);
+                } catch (mailError) {
+                    console.error('Error sending email:', mailError);
+                }
+
                 res.json({
                     id: results.insertId,
                     email,
@@ -130,9 +176,29 @@ app.post('/klanten', async (req, res) => {
         );
     } catch (err) {
         console.error('Error hashing password: ', err);
-        res.status(500).send('Er is een fout opgetreden bij het hashen van het wachtwoord.');
+        res.status(500).send('Error occurred during registration.');
     }
 });
+
+
+app.get('/verify-email/:id', (req, res) => {
+    const klantId = req.params.id;
+    const currentDate = new Date();
+
+    db.query('UPDATE klanten SET email_verificatie_datum = ? WHERE id = ?', [currentDate, klantId], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).send('Er is een fout opgetreden.');
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send('Gebruiker niet gevonden.');
+        }
+
+        res.send('Email verified successfully! You can now log in.');
+    });
+});
+
 
 app.delete('/klanten/:id', (req, res) => {
     const id = req.params.id;
@@ -211,7 +277,6 @@ app.put('/klanten/:id', (req, res) => {
         );
     });
 });
-
 
 
 
