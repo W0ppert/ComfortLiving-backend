@@ -124,18 +124,21 @@ app.post('/klanten', async (req, res) => {
                     return res.status(500).send(err);
                 }
 
-                // After successfully registering the user, send an email
+                // Create the verification link
+                const verificationLink = `http://localhost:3000/verify-email/${results.insertId}`;
+
+                // Email options
                 const mailOptions = {
-                    from: '"Comfortliving" <your-email@example.com>', // Sender address
-                    to: email, // Receiver's email
-                    subject: 'Welcome to Our Platform', // Subject line
-                    text: `Hello ${voornaam},\n\nThank you for registering with us!`, // Plain text body
-                    html: `<p>Hello ${voornaam},</p><p>Thank you for registering with us!</p>` // HTML body
+                    from: '"Comfortliving" <your-email@example.com>',
+                    to: email,
+                    subject: 'Verify Your Email Address',
+                    html: `<p>Hello ${voornaam},</p><p>Please verify your email by clicking the link: <a href="${verificationLink}">Verify Email</a></p>`
                 };
 
+                // Send the email
                 try {
                     await transporter.sendMail(mailOptions);
-                    console.log('Registration email sent to:', email);
+                    console.log('Verification email sent to:', email);
                 } catch (mailError) {
                     console.error('Error sending email:', mailError);
                 }
@@ -157,6 +160,25 @@ app.post('/klanten', async (req, res) => {
         res.status(500).send('Error occurred during registration.');
     }
 });
+
+app.get('/verify-email/:id', (req, res) => {
+    const klantId = req.params.id;
+    const currentDate = new Date();
+
+    db.query('UPDATE klanten SET email_verificatie_datum = ? WHERE id = ?', [currentDate, klantId], (err, results) => {
+        if (err) {
+            console.error('Database error:', err);
+            return res.status(500).send('Er is een fout opgetreden.');
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send('Gebruiker niet gevonden.');
+        }
+
+        res.send('Email verified successfully! You can now log in.');
+    });
+});
+
 
 // Panden
 app.get('/panden', (req, res) => {
