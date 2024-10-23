@@ -5,8 +5,14 @@ const db = require('./db'); // Import the database connection
 const port = 3000;
 
 // Create an Express app
+const corsOptions = {
+    origin: 'http://localhost:3000/', // Specifieke origin
+    credentials: true // Toestaan van credentials
+  };
+
+  // Create an Express app
 const app = express();
-app.use(cors()); // To allow cross-origin requests
+app.use(cors(corsOptions)); // To allow cross-origin requests
 app.use(express.json()); // To parse JSON bodies
 
 // CRUD operations for each table
