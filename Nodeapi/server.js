@@ -278,6 +278,55 @@ app.put('/klanten/:id', (req, res) => {
     });
 });
 
+app.put('/klanten/:id/wachtwoord', (req, res) => {
+    const { id } = req.params;
+    const { oudWachtwoord, nieuwWachtwoord } = req.body;
+
+    if (!oudWachtwoord || !nieuwWachtwoord) {
+        return res.status(400).send('Vul zowel het oude als het nieuwe wachtwoord in.');
+    }
+
+    // Haal het huidige gehashte wachtwoord op
+    db.query('SELECT wachtwoord FROM klanten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        if (results.length === 0) {
+            return res.status(404).send('Klant niet gevonden.');
+        }
+
+        const gehashteWachtwoord = results[0].wachtwoord;
+
+        // Vergelijk het ingevoerde oude wachtwoord met het gehashte wachtwoord
+        bcrypt.compare(oudWachtwoord, gehashteWachtwoord, (err, match) => {
+            if (err) {
+                return res.status(500).send(err);
+            }
+            if (!match) {
+                return res.status(401).send('Oude wachtwoord is onjuist.');
+            }
+
+            // Hash het nieuwe wachtwoord
+            bcrypt.hash(nieuwWachtwoord, 10, (err, hashedNieuwWachtwoord) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+
+                // Update het wachtwoord in de database
+                db.query(
+                    'UPDATE klanten SET wachtwoord = ? WHERE id = ?',
+                    [hashedNieuwWachtwoord, id],
+                    (err) => {
+                        if (err) {
+                            return res.status(500).send(err);
+                        }
+                        res.json({ message: 'Wachtwoord succesvol bijgewerkt' });
+                    }
+                );
+            });
+        });
+    });
+});
 
 
 
