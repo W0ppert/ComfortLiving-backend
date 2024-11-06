@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const db = require('./db'); // Import the database connection
-const port = 3000;
+const port = 3001;
 const nodemailer = require('nodemailer'); // Import nodemailer for sending emails
 require('dotenv').config();
 
@@ -11,8 +11,8 @@ require('dotenv').config();
 
 // Create an Express app
 const corsOptions = {
-    origin: 'http://localhost:3000/', // Specifieke origin
-    credentials: true // Toestaan van credentials
+    origin: 'http://localhost:3000', // Specifieke origin
+    credentials: true 
   };
 
   // Create an Express app
@@ -143,7 +143,7 @@ app.post('/klanten', async (req, res) => {
                 }
 
                 // Create the verification link
-                const verificationLink = `http://localhost:3000/verify-email/${results.insertId}`;
+                const verificationLink = `http://localhost:3001/verify-email/${results.insertId}`;
 
                 // Email options
                 const mailOptions = {
