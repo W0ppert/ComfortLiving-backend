@@ -414,13 +414,42 @@ app.get('/inschrijvingen', (req, res) => {
 });
 
 app.post('/inschrijvingen', (req, res) => {
-    const { hoeveel_personen, jaar_inkomen } = req.body;
-    db.query('INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen) VALUES (?, ?)', 
-    [hoeveel_personen, jaar_inkomen], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ hoeveel_personen, jaar_inkomen });
-    });
+    
+
+    const { hoeveel_personen, jaar_inkomen, userid, pandid } = req.body;
+
+
+    // Converteer expliciet naar integers/numbers
+    const parsedData = {
+        hoeveel_personen: parseInt(hoeveel_personen),
+        jaar_inkomen: parseFloat(jaar_inkomen),
+        userid: parseInt(userid),
+        pandid: parseInt(pandid)
+    };
+
+    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid) VALUES (?, ?, ?, ?)';
+
+    db.query(
+        query, 
+        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid], 
+        (err, results) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ 
+                    error: 'Database error', 
+                    details: err.message 
+                });
+            }
+            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid]);
+            res.status(201).json({ 
+                message: 'Inschrijving succesvol',
+                insertedData: parsedData,
+                results: results
+            });
+        }
+    );
 });
+
 app.post('/serviceverzoek', (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
