@@ -132,7 +132,7 @@ app.post('/klanten', async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
-        const Password = await bcrypt.hash(wachtwoord, 10);
+        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
 
@@ -456,7 +456,6 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
 */
 
 
-// Panden
 app.get('/panden', (req, res) => {
     db.query('SELECT * FROM panden', (err, results) => {
         if (err) return res.status(500).send(err);
