@@ -5,6 +5,7 @@ const db = require('./db'); // Import the database connection
 const port = 3001;
 const nodemailer = require('nodemailer'); // Import nodemailer for sending emails
 require('dotenv').config();
+const saltRounds = 10;
 
 
 
@@ -83,7 +84,7 @@ app.post('/klanten/login', async (req, res) => {
 
     db.query('SELECT * FROM klanten WHERE email = ?', [email], async (err, results) => {
         if (err) {
-            console.log('Database query error:', err);
+            
             return res.status(500).send('Er is een fout opgetreden.');
         }
 
@@ -95,7 +96,7 @@ app.post('/klanten/login', async (req, res) => {
 
         try {
             const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
-            console.log('Password Match:', isMatch);
+            
 
             if (!isMatch) {
                 return res.status(400).send('Onjuist wachtwoord.');
@@ -105,12 +106,12 @@ app.post('/klanten/login', async (req, res) => {
             delete klant.wachtwoord;
 
             // Log de volledige gebruikersgegevens in de console
-            console.log('User data:', JSON.stringify(klant, null, 2));
+            
 
             // Stuur de volledige gebruikersgegevens terug als JSON
             res.json(klant);
         } catch (compareError) {
-            console.log('Error comparing passwords:', compareError);
+            
             return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
         }
     });
@@ -195,7 +196,8 @@ app.get('/verify-email/:id', (req, res) => {
             return res.status(404).send('Gebruiker niet gevonden.');
         }
 
-        res.send('Email verified successfully! You can now log in.');
+        // jordy hier moet een inlog functie komen zodat je automatsch inlogt als je je email verifieert
+        res.redirect('localhost:3000');
     });
 });
 
@@ -278,6 +280,130 @@ app.put('/klanten/:id', (req, res) => {
     });
 });
 
+
+
+app.post('/request-password-reset', (req, res) => {
+    const { email } = req.body;
+
+    db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
+        if (err) {
+            return res.status(500).send('Internal Server Error');
+        }
+        if (results.length === 0) {
+            return res.status(404).send('No user found with this email');
+        }
+
+        const userId = results[0].id;
+
+        const token = new Date().getTime().toString();  // Token created from timestamp
+
+        // Store the plain token (not hashed)
+        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+        db.query(
+            'INSERT INTO tokens (user_id, token, verval_datum) VALUES (?, ?, ?)',
+            [userId, token, tokenExpiry],
+            (err) => {
+                if (err) {
+                    return res.status(500).send('Error saving token to the database');
+                }
+
+                // Send the reset email with the plain token in the link
+                const mailOptions = {
+                    from: process.env.EMAIL_USER,
+                    to: email,
+                    subject: 'Password Reset Request',
+                    text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${token}`,
+                };
+
+                transporter.sendMail(mailOptions, (err) => {
+                    if (err) {
+                        return res.status(500).send('Error sending the email');
+                    }
+                    res.json({ message: 'Password reset email sent successfully' });
+                });
+            }
+        );
+    });
+});
+
+
+app.post('/reset-password', (req, res) => {
+    const { token, newPassword } = req.body;
+
+    
+
+    db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
+        if (err) {
+            return res.status(500).send('Internal Server Error');
+        }
+
+        if (results.length === 0) {
+            
+            return res.status(400).send('Invalid or expired token');
+        }
+
+        const tokenData = results[0];
+
+        // Log the token stored in the database
+        
+
+        const currentTime = new Date();
+        if (currentTime > new Date(tokenData.verval_datum)) {
+            
+            return res.status(400).send('Token has expired');
+        }
+
+        // Directly compare the plain token
+        if (token !== tokenData.token) {
+           
+            return res.status(400).send('Invalid or expired token');
+        }
+
+        // If token matches, proceed with password reset
+        
+
+        db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
+            if (err) {
+                return res.status(500).send('Internal Server Error');
+            }
+
+            if (userResults.length === 0) {
+                return res.status(404).send('User not found');
+            }
+
+            const user = userResults[0];
+
+            // Hash the new password
+            bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+                if (err) {
+                    return res.status(500).send('Error hashing password');
+                }
+
+                // Update the user's password
+                db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
+                    if (err) {
+                        return res.status(500).send('Error updating password');
+                    }
+
+                    // Optionally, delete the token after it's used
+                    db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
+                        if (err) {
+                            
+                        }
+
+                        res.json({ message: 'Password reset successfully' });
+                    });
+                });
+            });
+        });
+    });
+});
+
+
+
+
+/** 
 app.put('/klanten/:id/wachtwoord', (req, res) => {
     const { id } = req.params;
     const { oudWachtwoord, nieuwWachtwoord } = req.body;
@@ -327,7 +453,7 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
         });
     });
 });
-
+*/
 
 
 // Panden
@@ -422,13 +548,42 @@ app.get('/inschrijvingen', (req, res) => {
 });
 
 app.post('/inschrijvingen', (req, res) => {
-    const { hoeveel_personen, jaar_inkomen } = req.body;
-    db.query('INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen) VALUES (?, ?)', 
-    [hoeveel_personen, jaar_inkomen], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ hoeveel_personen, jaar_inkomen });
-    });
+    
+
+    const { hoeveel_personen, jaar_inkomen, userid, pandid } = req.body;
+
+
+    // Converteer expliciet naar integers/numbers
+    const parsedData = {
+        hoeveel_personen: parseInt(hoeveel_personen),
+        jaar_inkomen: parseFloat(jaar_inkomen),
+        userid: parseInt(userid),
+        pandid: parseInt(pandid)
+    };
+
+    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid) VALUES (?, ?, ?, ?)';
+
+    db.query(
+        query, 
+        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid], 
+        (err, results) => {
+            if (err) {
+                console.error('Database error:', err);
+                return res.status(500).json({ 
+                    error: 'Database error', 
+                    details: err.message 
+                });
+            }
+            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid]);
+            res.status(201).json({ 
+                message: 'Inschrijving succesvol',
+                insertedData: parsedData,
+                results: results
+            });
+        }
+    );
 });
+
 app.post('/serviceverzoek', (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
