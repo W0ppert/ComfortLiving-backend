@@ -235,7 +235,7 @@ app.delete('/klanten/:id', (req, res) => {
 
 app.put('/klanten/:id', (req, res) => {
     const { id } = req.params;
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats } = req.body;
 
     // Haal de bestaande klantgegevens op
     db.query('SELECT * FROM klanten WHERE id = ?', [id], (err, results) => {
@@ -257,13 +257,14 @@ app.put('/klanten/:id', (req, res) => {
             geslacht: geslacht || klant.geslacht,
             geboortedatum: geboortedatum || klant.geboortedatum,
             huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
+            straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
             telefoonnummer: telefoonnummer || klant.telefoonnummer
         };
 
         // Update de klant in de database
         db.query(
-            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ? WHERE id = ?',
-            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, id],
+            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ? WHERE id = ?',
+            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, id],
             (err, updateResults) => {
                 if (err) {
                     return res.status(500).send(err);
