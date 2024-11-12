@@ -60,14 +60,44 @@ app.get('/externepartij', (req, res) => {
 });
 
 app.post('/externepartij', (req, res) => {
-    const { naam, email, telefoonnummer } = req.body;
-    db.query('INSERT INTO externepartij (naam, email, telefoonnummer) VALUES (?, ?, ?)', 
-    [naam, email, telefoonnummer], (err, results) => {
+    const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
+    db.query('INSERT INTO externepartij (bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon) VALUES (?, ?, ?, ?, ?)', 
+    [bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, naam, email, telefoonnummer });
+        res.json({ id: results.insertId, bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon });
     });
 });
 
+app.put('/externepartij/:id', (req, res) => {
+    const { id } = req.params;
+    const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
+
+    // Stap 1: Haal de huidige gegevens op
+    db.query('SELECT * FROM externepartij WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.length === 0) return res.status(404).send('Externe partij niet gevonden');
+
+        // Bestaande gegevens behouden, enkel de meegegeven velden updaten
+        const bestaandeGegevens = results[0];
+        const nieuweGegevens = {
+            bedrijfsnaam: bedrijfsnaam || bestaandeGegevens.bedrijfsnaam,
+            contactpersoon: contactpersoon || bestaandeGegevens.contactpersoon,
+            email_contactpersoon: email_contactpersoon || bestaandeGegevens.email_contactpersoon,
+            telefoonnummer_bedrijf: telefoonnummer_bedrijf || bestaandeGegevens.telefoonnummer_bedrijf,
+            telefoon_contactpersoon: telefoon_contactpersoon || bestaandeGegevens.telefoon_contactpersoon
+        };
+
+        // Stap 2: Update de gegevens in de database
+        db.query(
+            'UPDATE externepartij SET bedrijfsnaam = ?, contactpersoon = ?, email_contactpersoon = ?, telefoonnummer_bedrijf = ?, telefoon_contactpersoon = ? WHERE id = ?',
+            [nieuweGegevens.bedrijfsnaam, nieuweGegevens.contactpersoon, nieuweGegevens.email_contactpersoon, nieuweGegevens.telefoonnummer_bedrijf, nieuweGegevens.telefoon_contactpersoon, id],
+            (err, updateResult) => {
+                if (err) return res.status(500).send(err);
+                res.json({ id, ...nieuweGegevens });
+            }
+        );
+    });
+});
 
 // Klanten
 app.get('/klanten', (req, res) => {
@@ -115,6 +145,7 @@ app.post('/klanten/login', async (req, res) => {
         }
     });
 });
+
 app.get('/klanten/:id', (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
@@ -125,7 +156,6 @@ app.get('/klanten/:id', (req, res) => {
         res.json(user);
     });
 });
-
 
 app.post('/klanten', async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
@@ -388,14 +418,28 @@ app.get('/serviceverzoek', (req, res) => {
     });
 });
 
-// app.post('/serviceverzoek', (req, res) => {
-//     const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
-//     db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
-//     [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
-//         if (err) return res.status(500).send(err);
-//         res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
-//     });
-// });
+app.post('/serviceverzoek', (req, res) => {
+    const { omschrijving } = req.body;
+    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
+    [omschrijving], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ id: results.insertId, omschrijving });
+    });
+});
+
+app.put('/serviceverzoek/:id', (req, res) => {
+    const { id } = req.params;  // Haal de id uit de URL
+    const { omschrijving } = req.body;  // Haal de nieuwe omschrijving uit het verzoek
+
+    db.query('UPDATE serviceverzoek SET omschrijving = ? WHERE id = ?', 
+    [omschrijving, id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
+        }
+        res.json({ id, omschrijving });
+    });
+});
 
 // Stappen
 app.get('/stappen', (req, res) => {
@@ -437,10 +481,7 @@ app.post('/serviceverzoek', (req, res) => {
         res.json({ id: results.insertId, omschrijving });
     });
 });
-// Start the serverx
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}/`);
-});
+
 
 app.get('/medewerkers', (req, res) => {
     db.query('SELECT * FROM medewerkers', (err, results) => {
@@ -566,4 +607,9 @@ app.delete('/medewerkers/:id', (req, res) => {
 
         res.json({ message: 'Medewerker succesvol verwijderd' });
     });
+});
+
+// Start the serverx
+app.listen(port, () => {
+    console.log(`Server running at http://localhost:${port}/`);
 });
