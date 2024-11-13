@@ -504,11 +504,11 @@ app.get('/panden/:id', (req, res) => {
 });
 
 app.post('/panden', (req, res) => {
-    const { postcode, straat, huisnummer, plaats } = req.body;
-    db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats) VALUES (?, ?, ?, ?)', 
-    [postcode, straat, huisnummer, plaats], (err, results) => {
+    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+    db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats, langitude, altitude) VALUES (?, ?, ?, ?, ?, ?)', 
+    [postcode, straat, huisnummer, plaats, langitude, altitude], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, postcode, straat, huisnummer, plaats });
+        res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
 
@@ -763,6 +763,7 @@ app.delete('/medewerkers/:id', (req, res) => {
         res.json({ message: 'Medewerker succesvol verwijderd' });
     });
 });
+
 
 // Start the serverx
 app.listen(port, () => {
