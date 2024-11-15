@@ -631,12 +631,12 @@ app.post('/inschrijvingen', (req, res) => {
 
 app.put('/inschrijvingen/:id', (req, res) => { 
     const { id } = req.params; // Haal de ID uit de URL
-    const { hoeveel_personen, jaar_inkomen, bezichtiging_status } = req.body; // Haal de data uit de request body
+    const { hoeveel_personen, jaar_inkomen, status } = req.body; // Haal de data uit de request body
 
     // Update de inschrijving in de database
     db.query(
-        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging_status = ? WHERE id = ?', 
-        [hoeveel_personen, jaar_inkomen, bezichtiging_status, id], 
+        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, status = ? WHERE id = ?', 
+        [hoeveel_personen, jaar_inkomen, status, id], 
         (err, results) => {
             if (err) return res.status(500).send(err);
             
@@ -647,7 +647,7 @@ app.put('/inschrijvingen/:id', (req, res) => {
                     id, 
                     hoeveel_personen, 
                     jaar_inkomen, 
-                    bezichtiging_status 
+                    status 
                 });
             } else {
                 res.status(404).json({ message: 'Inschrijving niet gevonden' });
