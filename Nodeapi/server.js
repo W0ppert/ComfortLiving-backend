@@ -174,7 +174,7 @@ app.post('/klanten', async (req, res) => {
                 }
 
                 // Create the verification link
-                const verificationLink = `http://localhost:3001/verify-email/${results.insertId}`;
+                const verificationLink = `https://api.22literverf.store/verify-email/${results.insertId}`;
 
                 // Email options
                 const mailOptions = {
@@ -336,7 +336,7 @@ app.post('/request-password-reset', (req, res) => {
             [userId, token, tokenExpiry],
             (err) => {
                 if (err) {
-                    return res.status(500).send('Error saving token to the database');
+                    return res.status(500).send(err);
                 }
 
                 // Send the reset email with the plain token in the link
@@ -344,7 +344,7 @@ app.post('/request-password-reset', (req, res) => {
                     from: process.env.EMAIL_USER,
                     to: email,
                     subject: 'Password Reset Request',
-                    text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${token}`,
+                    text: `To reset your password, click the link: https://api.22literverf.store/reset-password?token=${token}`,
                 };
 
                 transporter.sendMail(mailOptions, (err) => {
@@ -388,7 +388,7 @@ app.post('/reset-password', (req, res) => {
         // Directly compare the plain token
         if (token !== tokenData.token) {
            
-            return res.status(400).send('Invalid or expired token');
+            return res.status(400).send(token.toString() === tokenData.token.toString());
         }
 
         // If token matches, proceed with password reset
@@ -484,6 +484,7 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
         });
     });
 });
+
 
 
 
