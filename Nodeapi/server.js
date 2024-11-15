@@ -595,7 +595,7 @@ app.get('/inschrijvingen', (req, res) => {
 app.post('/inschrijvingen', (req, res) => {
     
 
-    const { hoeveel_personen, jaar_inkomen, userid, pandid } = req.body;
+    const { hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging } = req.body;
 
 
     // Converteer expliciet naar integers/numbers
@@ -603,14 +603,15 @@ app.post('/inschrijvingen', (req, res) => {
         hoeveel_personen: parseInt(hoeveel_personen),
         jaar_inkomen: parseFloat(jaar_inkomen),
         userid: parseInt(userid),
-        pandid: parseInt(pandid)
+        pandid: parseInt(pandid),
+        bezichtiging: parseInt(bezichtiging)
     };
 
-    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid) VALUES (?, ?, ?, ?)';
+    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging) VALUES (?, ?, ?, ?, ?)';
 
     db.query(
         query, 
-        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid], 
+        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid, parsedData.bezichtiging], 
         (err, results) => {
             if (err) {
                 console.error('Database error:', err);
@@ -619,7 +620,7 @@ app.post('/inschrijvingen', (req, res) => {
                     details: err.message 
                 });
             }
-            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid]);
+            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid, parsedData.bezichtiging]);
             res.status(201).json({ 
                 message: 'Inschrijving succesvol',
                 insertedData: parsedData,
@@ -632,12 +633,12 @@ app.post('/inschrijvingen', (req, res) => {
 
 app.put('/inschrijvingen/:id', (req, res) => { 
     const { id } = req.params; // Haal de ID uit de URL
-    const { hoeveel_personen, jaar_inkomen, status } = req.body; // Haal de data uit de request body
+    const { hoeveel_personen, jaar_inkomen, bezichtiging } = req.body; // Haal de data uit de request body
 
     // Update de inschrijving in de database
     db.query(
-        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, status = ? WHERE id = ?', 
-        [hoeveel_personen, jaar_inkomen, status, id], 
+        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging = ? WHERE id = ?', 
+        [hoeveel_personen, jaar_inkomen, bezichtiging, id], 
         (err, results) => {
             if (err) return res.status(500).send(err);
             
@@ -648,7 +649,7 @@ app.put('/inschrijvingen/:id', (req, res) => {
                     id, 
                     hoeveel_personen, 
                     jaar_inkomen, 
-                    status 
+                    bezichtiging
                 });
             } else {
                 res.status(404).json({ message: 'Inschrijving niet gevonden' });
@@ -658,11 +659,11 @@ app.put('/inschrijvingen/:id', (req, res) => {
 });
 
 app.post('/serviceverzoek', (req, res) => {
-    const { omschrijving } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
-    [omschrijving], (err, results) => {
+    const { omschrijving, status } = req.body;
+    db.query('INSERT INTO serviceverzoek (omschrijving, status) VALUES (?, ?)', 
+    [omschrijving, status], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving });
+        res.json({ id: results.insertId, omschrijving, status });
     });
 });
 
