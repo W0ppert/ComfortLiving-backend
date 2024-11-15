@@ -672,13 +672,13 @@ app.put('/serviceverzoek/:id', (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
     const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ?  WHERE id = ?', 
     [status, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
-        res.json({ id, status });
+        res.json({ id, status});
     });
 });
 
