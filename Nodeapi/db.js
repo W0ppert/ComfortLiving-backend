@@ -9,6 +9,15 @@ const db = mysql.createConnection({
     database: 'db'
 });
 
+// MySQL connection
+// const db = mysql.createConnection({
+//     host: 'db.22literverf.store',
+//     port: '3306',
+//     user: 'user',
+//     password: 'daap',
+//     database: 'db'
+// });
+
 db.connect((err) => {
     if (err) {
         console.error('Error connecting to the database:', err);
