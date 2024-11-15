@@ -635,27 +635,44 @@ app.put('/inschrijvingen/:id', (req, res) => {
     const { id } = req.params; // Haal de ID uit de URL
     const { hoeveel_personen, jaar_inkomen, bezichtiging } = req.body; // Haal de data uit de request body
 
-    // Update de inschrijving in de database
-    db.query(
-        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging = ? WHERE id = ?', 
-        [hoeveel_personen, jaar_inkomen, bezichtiging, id], 
-        (err, results) => {
-            if (err) return res.status(500).send(err);
-            
-            // Als de update gelukt is, stuur je een succesbericht terug
-            if (results.affectedRows > 0) {
-                res.json({ 
-                    message: 'Inschrijving succesvol bijgewerkt', 
-                    id, 
-                    hoeveel_personen, 
-                    jaar_inkomen, 
-                    bezichtiging
-                });
-            } else {
-                res.status(404).json({ message: 'Inschrijving niet gevonden' });
-            }
+    // Haal de bestaande gegevens op uit de database
+    db.query('SELECT * FROM inschrijvingen WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).send(err);
+
+        if (results.length === 0) {
+            return res.status(404).json({ message: 'Inschrijving niet gevonden' });
         }
-    );
+
+        // Haal de bestaande waarden op
+        const existingData = results[0];
+
+        // Stel de nieuwe waarden in, gebruik de bestaande waarden als ze niet zijn meegegeven in de request
+        const updatedHoeveelPersonen = hoeveel_personen || existingData.hoeveel_personen;
+        const updatedJaarInkomen = jaar_inkomen || existingData.jaar_inkomen;
+        const updatedBezichtiging = bezichtiging || existingData.bezichtiging;
+
+        // Update de inschrijving in de database
+        db.query(
+            'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging = ? WHERE id = ?', 
+            [updatedHoeveelPersonen, updatedJaarInkomen, updatedBezichtiging, id], 
+            (err, results) => {
+                if (err) return res.status(500).send(err);
+                
+                // Als de update gelukt is, stuur je een succesbericht terug
+                if (results.affectedRows > 0) {
+                    res.json({ 
+                        message: 'Inschrijving succesvol bijgewerkt', 
+                        id, 
+                        hoeveel_personen: updatedHoeveelPersonen, 
+                        jaar_inkomen: updatedJaarInkomen, 
+                        bezichtiging: updatedBezichtiging
+                    });
+                } else {
+                    res.status(404).json({ message: 'Inschrijving niet gevonden' });
+                }
+            }
+        );
+    });
 });
 
 app.post('/serviceverzoek', (req, res) => {
