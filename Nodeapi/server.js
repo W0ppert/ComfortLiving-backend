@@ -313,6 +313,52 @@ app.put('/klanten/:id', (req, res) => {
 
 
 
+// app.post('/request-password-reset', (req, res) => {
+//     const { email } = req.body;
+
+//     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
+//         if (err) {
+//             return res.status(500).send('Internal Server Error');
+//         }
+//         if (results.length === 0) {
+//             return res.status(404).send('No user found with this email');
+//         }
+
+//         const userId = results[0].id;
+
+//         const token = new Date().getTime().toString();  // Token created from timestamp
+
+//         // Store the plain token (not hashed)
+//         const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+//         db.query(
+//             'INSERT INTO tokens (user_id, token, verval_datum) VALUES (?, ?, ?)',
+//             [userId, token, tokenExpiry],
+//             (err) => {
+//                 if (err) {
+//                     return res.status(500).send('Error saving token to the database');
+//                 }
+
+//                 // Send the reset email with the plain token in the link
+//                 const mailOptions = {
+//                     from: process.env.EMAIL_USER,
+//                     to: email,
+//                     subject: 'Password Reset Request',
+//                     text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${token}`,
+//                 };
+
+//                 transporter.sendMail(mailOptions, (err) => {
+//                     if (err) {
+//                         return res.status(500).send('Error sending the email');
+//                     }
+//                     res.json({ message: 'Password reset email sent successfully' });
+//                 });
+//             }
+//         );
+//     });
+// });
+
+
 app.post('/request-password-reset', (req, res) => {
     const { email } = req.body;
 
@@ -326,10 +372,22 @@ app.post('/request-password-reset', (req, res) => {
 
         const userId = results[0].id;
 
-        const token = new Date().getTime().toString();  // Token created from timestamp
+        // Genereer een eenvoudige token met timestamp en random getal
+        const plainToken = `${new Date().getTime()}-${Math.floor(Math.random() * 1000000)}`;
 
-        // Store the plain token (not hashed)
-        const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+        // Hash de token
+        bcrypt.hash(plainToken, saltRounds, (err, hashedToken) => {
+            if (err) {
+                return res.status(500).send('Error hashing the token');
+            }
+
+
+            const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+            db.query(
+                'INSERT INTO tokens (user_id, token, verval_datum) VALUES (?, ?, ?)',
+                [userId, hashedToken, tokenExpiry],
+                (err) => {
 
         db.query(
             'INSERT INTO tokens (user_id, token, verval_datum) VALUES (?, ?, ?)',
@@ -348,42 +406,129 @@ app.post('/request-password-reset', (req, res) => {
                 };
 
                 transporter.sendMail(mailOptions, (err) => {
+
                     if (err) {
-                        return res.status(500).send('Error sending the email');
+                        return res.status(500).send('Error saving token to the database');
                     }
-                    res.json({ message: 'Password reset email sent successfully' });
-                });
-            }
-        );
+
+                    // Stuur het plainToken in de link van de e-mail
+                    const mailOptions = {
+                        from: process.env.EMAIL_USER,
+                        to: email,
+                        subject: 'Password Reset Request',
+                        text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${plainToken}`,
+                    };
+
+                    transporter.sendMail(mailOptions, (err) => {
+                        if (err) {
+                            return res.status(500).send('Error sending the email');
+                        }
+                        res.json({ message: 'Password reset email sent successfully' });
+                    });
+                }
+            );
+        });
     });
 });
 
+// app.post('/reset-password', (req, res) => {
+//     const { token, newPassword } = req.body;
+
+    
+
+//     db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
+//         if (err) {
+//             return res.status(500).send('Internal Server Error');
+//         }
+
+//         if (results.length === 0) {
+            
+//             return res.status(400).send('Invalid or expired token');
+//         }
+
+//         const tokenData = results[0];
+
+//         // Log the token stored in the database
+        
+
+//         const currentTime = new Date();
+//         if (currentTime > new Date(tokenData.verval_datum)) {
+            
+//             return res.status(400).send('Token has expired');
+//         }
+
+//         // Directly compare the plain token
+//         if (token !== tokenData.token) {
+           
+//             return res.status(400).send('Invalid or expired token');
+//         }
+
+//         // If token matches, proceed with password reset
+        
+
+//         db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
+//             if (err) {
+//                 return res.status(500).send('Internal Server Error');
+//             }
+
+//             if (userResults.length === 0) {
+//                 return res.status(404).send('User not found');
+//             }
+
+//             const user = userResults[0];
+
+//             // Hash the new password
+//             bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+//                 if (err) {
+//                     return res.status(500).send('Error hashing password');
+//                 }
+
+//                 // Update the user's password
+//                 db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
+//                     if (err) {
+//                         return res.status(500).send('Error updating password');
+//                     }
+
+//                     // Optionally, delete the token after it's used
+//                     db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
+//                         if (err) {
+                            
+//                         }
+
+//                         res.json({ message: 'Password reset successfully' });
+//                     });
+//                 });
+//             });
+//         });
+//     });
+// });
 
 app.post('/reset-password', (req, res) => {
     const { token, newPassword } = req.body;
 
-    
-
+    // Zoek de token in de database
     db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
         if (err) {
             return res.status(500).send('Internal Server Error');
         }
 
         if (results.length === 0) {
-            
             return res.status(400).send('Invalid or expired token');
         }
 
         const tokenData = results[0];
 
-        // Log the token stored in the database
-        
-
+        // Controleer of de token is verlopen
         const currentTime = new Date();
         if (currentTime > new Date(tokenData.verval_datum)) {
-            
             return res.status(400).send('Token has expired');
         }
+
+
+        // Vergelijk de plain token met de gehashte token in de database
+        bcrypt.compare(token, tokenData.token, (err, isMatch) => {
+            if (err || !isMatch) {
+                return res.status(400).send('Invalid or expired token');
 
         // Directly compare the plain token
         if (token !== tokenData.token) {
@@ -401,37 +546,46 @@ app.post('/reset-password', (req, res) => {
 
             if (userResults.length === 0) {
                 return res.status(404).send('User not found');
+
             }
 
-            const user = userResults[0];
-
-            // Hash the new password
-            bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+            // Als de token klopt, reset het wachtwoord
+            db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
                 if (err) {
-                    return res.status(500).send('Error hashing password');
+                    return res.status(500).send('Internal Server Error');
                 }
 
-                // Update the user's password
-                db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
+                if (userResults.length === 0) {
+                    return res.status(404).send('User not found');
+                }
+
+                const user = userResults[0];
+
+                // Hash het nieuwe wachtwoord
+                bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
                     if (err) {
-                        return res.status(500).send('Error updating password');
+                        return res.status(500).send('Error hashing password');
                     }
 
-                    // Optionally, delete the token after it's used
-                    db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
+                    // Update het wachtwoord van de gebruiker
+                    db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
                         if (err) {
-                            
+                            return res.status(500).send('Error updating password');
                         }
 
-                        res.json({ message: 'Password reset successfully' });
+                        // Verwijder de token na succesvolle reset
+                        db.query('DELETE FROM tokens WHERE id = ?', [tokenData.id], (err) => {
+                            if (err) {
+                                console.error('Error deleting token:', err);
+                            }
+                            res.json({ message: 'Password reset successfully' });
+                        });
                     });
                 });
             });
         });
     });
 });
-
-
 
 
 
@@ -558,13 +712,13 @@ app.put('/serviceverzoek/:id', (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
     const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ?  WHERE id = ?', 
     [status, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
-        res.json({ id, status, bezichtiging });
+        res.json({ id, status});
     });
 });
 
