@@ -61,14 +61,44 @@ app.get('/externepartij', (req, res) => {
 });
 
 app.post('/externepartij', (req, res) => {
-    const { naam, email, telefoonnummer } = req.body;
-    db.query('INSERT INTO externepartij (naam, email, telefoonnummer) VALUES (?, ?, ?)', 
-    [naam, email, telefoonnummer], (err, results) => {
+    const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
+    db.query('INSERT INTO externepartij (bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon) VALUES (?, ?, ?, ?, ?)', 
+    [bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, naam, email, telefoonnummer });
+        res.json({ id: results.insertId, bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon });
     });
 });
 
+app.put('/externepartij/:id', (req, res) => {
+    const { id } = req.params;
+    const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
+
+    // Stap 1: Haal de huidige gegevens op
+    db.query('SELECT * FROM externepartij WHERE id = ?', [id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.length === 0) return res.status(404).send('Externe partij niet gevonden');
+
+        // Bestaande gegevens behouden, enkel de meegegeven velden updaten
+        const bestaandeGegevens = results[0];
+        const nieuweGegevens = {
+            bedrijfsnaam: bedrijfsnaam || bestaandeGegevens.bedrijfsnaam,
+            contactpersoon: contactpersoon || bestaandeGegevens.contactpersoon,
+            email_contactpersoon: email_contactpersoon || bestaandeGegevens.email_contactpersoon,
+            telefoonnummer_bedrijf: telefoonnummer_bedrijf || bestaandeGegevens.telefoonnummer_bedrijf,
+            telefoon_contactpersoon: telefoon_contactpersoon || bestaandeGegevens.telefoon_contactpersoon
+        };
+
+        // Stap 2: Update de gegevens in de database
+        db.query(
+            'UPDATE externepartij SET bedrijfsnaam = ?, contactpersoon = ?, email_contactpersoon = ?, telefoonnummer_bedrijf = ?, telefoon_contactpersoon = ? WHERE id = ?',
+            [nieuweGegevens.bedrijfsnaam, nieuweGegevens.contactpersoon, nieuweGegevens.email_contactpersoon, nieuweGegevens.telefoonnummer_bedrijf, nieuweGegevens.telefoon_contactpersoon, id],
+            (err, updateResult) => {
+                if (err) return res.status(500).send(err);
+                res.json({ id, ...nieuweGegevens });
+            }
+        );
+    });
+});
 
 // Klanten
 app.get('/klanten', (req, res) => {
@@ -116,6 +146,7 @@ app.post('/klanten/login', async (req, res) => {
         }
     });
 });
+
 app.get('/klanten/:id', (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
@@ -127,16 +158,15 @@ app.get('/klanten/:id', (req, res) => {
     });
 });
 
-
 app.post('/klanten', async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
-            'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 
-            [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
 
                 if (err) {
@@ -237,7 +267,7 @@ app.delete('/klanten/:id', (req, res) => {
 
 app.put('/klanten/:id', (req, res) => {
     const { id } = req.params;
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats } = req.body;
 
     // Haal de bestaande klantgegevens op
     db.query('SELECT * FROM klanten WHERE id = ?', [id], (err, results) => {
@@ -259,13 +289,14 @@ app.put('/klanten/:id', (req, res) => {
             geslacht: geslacht || klant.geslacht,
             geboortedatum: geboortedatum || klant.geboortedatum,
             huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
+            straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
             telefoonnummer: telefoonnummer || klant.telefoonnummer
         };
 
         // Update de klant in de database
         db.query(
-            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ? WHERE id = ?',
-            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, id],
+            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ? WHERE id = ?',
+            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, id],
             (err, updateResults) => {
                 if (err) {
                     return res.status(500).send(err);
@@ -456,7 +487,7 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
 
 
 
-// Panden
+
 app.get('/panden', (req, res) => {
     db.query('SELECT * FROM panden', (err, results) => {
         if (err) return res.status(500).send(err);
@@ -474,14 +505,22 @@ app.get('/panden/:id', (req, res) => {
 });
 
 app.post('/panden', (req, res) => {
-    const { postcode, straat, huisnummer, plaats } = req.body;
-    db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats) VALUES (?, ?, ?, ?)', 
-    [postcode, straat, huisnummer, plaats], (err, results) => {
+    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+    db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats, langitude, altitude) VALUES (?, ?, ?, ?, ?, ?)', 
+    [postcode, straat, huisnummer, plaats, langitude, altitude], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, postcode, straat, huisnummer, plaats });
+        res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
 
+app.delete('/panden/:id', (req, res) => {
+    const id = req.params.id;
+    db.query('DELETE FROM panden WHERE id = ?;', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van het pand.', error: err });
+        }
+    });
+});
 // Servicetype
 app.get('/servicetype', (req, res) => {
     db.query('SELECT * FROM servicetype', (err, results) => {
@@ -506,14 +545,28 @@ app.get('/serviceverzoek', (req, res) => {
     });
 });
 
-// app.post('/serviceverzoek', (req, res) => {
-//     const { omschrijving, contract_Id, servicetype_id, datum } = req.body;
-//     db.query('INSERT INTO serviceverzoek (omschrijving, contract_Id, servicetype_id, datum) VALUES (?, ?, ?, ?)', 
-//     [omschrijving, contract_Id, servicetype_id, datum], (err, results) => {
-//         if (err) return res.status(500).send(err);
-//         res.json({ id: results.insertId, omschrijving, contract_Id, servicetype_id, datum });
-//     });
-// });
+app.post('/serviceverzoek', (req, res) => {
+    const { omschrijving } = req.body;
+    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
+    [omschrijving], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ id: results.insertId, omschrijving });
+    });
+});
+
+app.put('/serviceverzoek/:id', (req, res) => {
+    const { id } = req.params;  // Haal de id uit de URL
+    const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
+
+    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    [status, id], (err, results) => {
+        if (err) return res.status(500).send(err);
+        if (results.affectedRows === 0) {
+            return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
+        }
+        res.json({ id, status, bezichtiging });
+    });
+});
 
 // Stappen
 app.get('/stappen', (req, res) => {
@@ -576,6 +629,34 @@ app.post('/inschrijvingen', (req, res) => {
     );
 });
 
+
+app.put('/inschrijvingen/:id', (req, res) => { 
+    const { id } = req.params; // Haal de ID uit de URL
+    const { hoeveel_personen, jaar_inkomen, bezichtiging_status } = req.body; // Haal de data uit de request body
+
+    // Update de inschrijving in de database
+    db.query(
+        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging_status = ? WHERE id = ?', 
+        [hoeveel_personen, jaar_inkomen, bezichtiging_status, id], 
+        (err, results) => {
+            if (err) return res.status(500).send(err);
+            
+            // Als de update gelukt is, stuur je een succesbericht terug
+            if (results.affectedRows > 0) {
+                res.json({ 
+                    message: 'Inschrijving succesvol bijgewerkt', 
+                    id, 
+                    hoeveel_personen, 
+                    jaar_inkomen, 
+                    bezichtiging_status 
+                });
+            } else {
+                res.status(404).json({ message: 'Inschrijving niet gevonden' });
+            }
+        }
+    );
+});
+
 app.post('/serviceverzoek', (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
@@ -584,6 +665,173 @@ app.post('/serviceverzoek', (req, res) => {
         res.json({ id: results.insertId, omschrijving });
     });
 });
+
+
+app.get('/medewerkers', (req, res) => {
+    db.query('SELECT * FROM medewerkers', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
+app.post('/medewerkers', async (req, res) => {
+    const { voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen } = req.body;
+
+    try {
+        // Wachtwoord hashen
+        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
+
+        // Database-insert met gehasht wachtwoord
+        db.query(
+            'INSERT INTO medewerkers (voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, hashedPassword, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen],
+            (err, results) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+
+                res.json({ id: results.insertId, voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen });
+            }
+        );
+    } catch (err) {
+        res.status(500).send('Error hashing password');
+    }
+});
+
+app.post('/medewerker/login', async (req, res) => {
+    const { email, wachtwoord } = req.body;
+
+    db.query('SELECT * FROM medewerkers WHERE email = ?', [email], async (err, results) => {
+        if (err) {
+            
+            return res.status(500).send('Er is een fout opgetreden.');
+        }
+
+        if (results.length === 0) {
+            return res.status(400).send('Medewerker niet gevonden.');
+        }
+
+        const medewerker = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, medewerker.wachtwoord);
+            
+
+            if (!isMatch) {
+                return res.status(400).send('Onjuist wachtwoord.');
+            }
+
+            // Verwijder het wachtwoord uit de medewerkergegevens voordat je ze terugstuurt
+            delete medewerker.wachtwoord;
+
+            // Log de volledige medewerkersgegevens in de console
+            
+
+            // Stuur de volledige medewerkersgegevens terug als JSON
+            res.json(medewerker);
+        } catch (compareError) {
+            
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
+    });
+});
+
+app.put('/medewerkers/:id', async (req, res) => {
+    const { voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen } = req.body;
+    const medewerkerId = req.params.id;
+
+    try {
+        // Stap 1: Haal de huidige gegevens van de medewerker op
+        db.query('SELECT * FROM medewerkers WHERE id = ?', [medewerkerId], async (err, rows) => {
+            if (err) {
+                return res.status(500).send(err);
+            }
+            if (rows.length === 0) {
+                return res.status(404).send('Medewerker niet gevonden');
+            }
+
+            // Huidige gegevens
+            const currentData = rows[0];
+
+            // Stap 2: Bepaal de waarden die geüpdatet moeten worden (gebruik huidige waarden indien niet meegegeven)
+            const updatedData = {
+                voornaam: voornaam || currentData.voornaam,
+                tussenvoegsel: tussenvoegsel || currentData.tussenvoegsel,
+                achternaam: achternaam || currentData.achternaam,
+                email: email || currentData.email,
+                contract_uren: contract_uren || currentData.contract_uren,
+                geboortedatum: geboortedatum || currentData.geboortedatum,
+                wachtwoord: wachtwoord ? await bcrypt.hash(wachtwoord, 10) : currentData.wachtwoord, // hash het wachtwoord indien meegegeven
+                telefoonnummer: telefoonnummer || currentData.telefoonnummer,
+                geslacht: geslacht || currentData.geslacht,
+                contract_verval_datum: contract_verval_datum || currentData.contract_verval_datum,
+                huidig_adres: huidig_adres || currentData.huidig_adres,
+                opmerkingen: opmerkingen || currentData.opmerkingen
+            };
+
+            // Stap 3: Update-query uitvoeren met de bijgewerkte waarden
+            const query = `
+                UPDATE medewerkers 
+                SET 
+                    voornaam = ?, 
+                    tussenvoegsel = ?, 
+                    achternaam = ?, 
+                    email = ?, 
+                    contract_uren = ?, 
+                    geboortedatum = ?, 
+                    wachtwoord = ?, 
+                    telefoonnummer = ?, 
+                    geslacht = ?, 
+                    contract_verval_datum = ?, 
+                    huidig_adres = ?, 
+                    opmerkingen = ?
+                WHERE id = ?
+            `;
+
+            const values = [
+                updatedData.voornaam,
+                updatedData.tussenvoegsel,
+                updatedData.achternaam,
+                updatedData.email,
+                updatedData.contract_uren,
+                updatedData.geboortedatum,
+                updatedData.wachtwoord,
+                updatedData.telefoonnummer,
+                updatedData.geslacht,
+                updatedData.contract_verval_datum,
+                updatedData.huidig_adres,
+                updatedData.opmerkingen,
+                medewerkerId
+            ];
+
+            db.query(query, values, (err, results) => {
+                if (err) {
+                    return res.status(500).send(err);
+                }
+                res.json({ message: 'Medewerker succesvol geüpdatet' });
+            });
+        });
+    } catch (err) {
+        res.status(500).send('Error updating medewerker');
+    }
+});
+
+app.delete('/medewerkers/:id', (req, res) => {
+    const medewerkerId = req.params.id;
+
+    db.query('DELETE FROM medewerkers WHERE id = ?', [medewerkerId], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+        if (results.affectedRows === 0) {
+            return res.status(404).send('Medewerker niet gevonden');
+        }
+
+        res.json({ message: 'Medewerker succesvol verwijderd' });
+    });
+});
+
+
 // Start the serverx
 app.listen(port, () => {
     console.log(`Server running at http://localhost:${port}/`);
