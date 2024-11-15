@@ -17,6 +17,7 @@ const apiKeyMiddleware = (req, res, next) => {
 };
 
 
+
 // Create an Express app
 const corsOptions = {
     origin: 'http://localhost:3000', // Specifieke origin
@@ -44,14 +45,14 @@ const transporter = nodemailer.createTransport({
 // CRUD operations for each table
 
 // Contracten
-app.get('/contracten',apiKeyMiddleware ,(req, res) => {
+app.get('/contracten', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM contracten', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/contracten',apiKeyMiddleware ,(req, res) => {
+app.post('/contracten', apiKeyMiddleware, (req, res) => {
     const { pandid, klantid } = req.body;
     db.query('INSERT INTO contracten (pandid, klantid) VALUES (?, ?)', [pandid, klantid], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -60,25 +61,23 @@ app.post('/contracten',apiKeyMiddleware ,(req, res) => {
 });
 
 // Externe partij
-app.get('/externepartij',apiKeyMiddleware ,(req, res) => {
+app.get('/externepartij', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM externepartij', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-
-app.post('/externepartij', (req, res) => {
+app.post('/externepartij', apiKeyMiddleware, (req, res) => {
     const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
     db.query('INSERT INTO externepartij (bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon) VALUES (?, ?, ?, ?, ?)', 
     [bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon], (err, results) => {
-
         if (err) return res.status(500).send(err);
         res.json({ id: results.insertId, bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon });
     });
 });
 
-app.put('/externepartij/:id', (req, res) => {
+app.put('/externepartij/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
 
@@ -110,7 +109,7 @@ app.put('/externepartij/:id', (req, res) => {
 });
 
 // Klanten
-app.get('/klanten',apiKeyMiddleware ,(req, res) => {
+app.get('/klanten', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM klanten', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
@@ -156,7 +155,7 @@ app.post('/klanten/login', async (req, res) => {
     });
 });
 
-app.get('/klanten/:id',apiKeyMiddleware ,(req, res) => {
+app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -183,7 +182,7 @@ app.post('/klanten', async (req, res) => {
                 }
 
                 // Create the verification link
-                const verificationLink = `https://api.22literverf.store/verify-email/${results.insertId}`;
+                const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
 
                 // Email options
                 const mailOptions = {
@@ -221,7 +220,7 @@ app.post('/klanten', async (req, res) => {
 });
 
 
-app.get('/verify-email/:id',apiKeyMiddleware ,(req, res) => {
+app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -241,7 +240,7 @@ app.get('/verify-email/:id',apiKeyMiddleware ,(req, res) => {
 });
 
 
-app.delete('/klanten/:id',apiKeyMiddleware ,(req, res) => {
+app.delete('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
 
     // Verwijder eerst gerelateerde serviceverzoeken
@@ -274,7 +273,7 @@ app.delete('/klanten/:id',apiKeyMiddleware ,(req, res) => {
     });
 });
 
-app.put('/klanten/:id',apiKeyMiddleware ,(req, res) => {
+app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats } = req.body;
 
@@ -322,9 +321,7 @@ app.put('/klanten/:id',apiKeyMiddleware ,(req, res) => {
 
 
 
-
-app.post('/request-password-reset',apiKeyMiddleware ,(req, res) => {
-
+app.post('/request-password-reset', apiKeyMiddleware, (req, res) => {
     const { email } = req.body;
 
     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
@@ -355,7 +352,7 @@ app.post('/request-password-reset',apiKeyMiddleware ,(req, res) => {
                     from: process.env.EMAIL_USER,
                     to: email,
                     subject: 'Password Reset Request',
-                    text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${token}`,
+                    text: `To reset your password, click the link: http://api.22literverf.store/reset-password?token=${token}`,
                 };
 
                 transporter.sendMail(mailOptions, (err) => {
@@ -370,111 +367,36 @@ app.post('/request-password-reset',apiKeyMiddleware ,(req, res) => {
 });
 
 
-
-
-// app.post('/reset-password', (req, res) => {
-//     const { token, newPassword } = req.body;
+app.post('/reset-password', apiKeyMiddleware, (req, res) => {
+    const { token, newPassword } = req.body;
 
     
 
-//     db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
-//         if (err) {
-//             return res.status(500).send('Internal Server Error');
-//         }
-
-//         if (results.length === 0) {
-            
-//             return res.status(400).send('Invalid or expired token');
-//         }
-
-//         const tokenData = results[0];
-
-//         // Log the token stored in the database
-        
-
-//         const currentTime = new Date();
-//         if (currentTime > new Date(tokenData.verval_datum)) {
-            
-//             return res.status(400).send('Token has expired');
-//         }
-
-//         // Directly compare the plain token
-//         if (token !== tokenData.token) {
-           
-//             return res.status(400).send('Invalid or expired token');
-//         }
-
-//         // If token matches, proceed with password reset
-        
-
-//         db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
-//             if (err) {
-//                 return res.status(500).send('Internal Server Error');
-//             }
-
-//             if (userResults.length === 0) {
-//                 return res.status(404).send('User not found');
-//             }
-
-//             const user = userResults[0];
-
-//             // Hash the new password
-//             bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
-//                 if (err) {
-//                     return res.status(500).send('Error hashing password');
-//                 }
-
-//                 // Update the user's password
-//                 db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
-//                     if (err) {
-//                         return res.status(500).send('Error updating password');
-//                     }
-
-//                     // Optionally, delete the token after it's used
-//                     db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
-//                         if (err) {
-                            
-//                         }
-
-//                         res.json({ message: 'Password reset successfully' });
-//                     });
-//                 });
-//             });
-//         });
-//     });
-// });
-
-app.post('/reset-password',apiKeyMiddleware ,(req, res) => {
-    const { token, newPassword } = req.body;
-
-    // Zoek de token in de database
     db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
         if (err) {
             return res.status(500).send('Internal Server Error');
         }
 
         if (results.length === 0) {
+            
             return res.status(400).send('Invalid or expired token');
         }
 
         const tokenData = results[0];
 
-        // Controleer of de token is verlopen
+        // Log the token stored in the database
+        
+
         const currentTime = new Date();
         if (currentTime > new Date(tokenData.verval_datum)) {
+            
             return res.status(400).send('Token has expired');
         }
-
-
-        // Vergelijk de plain token met de gehashte token in de database
-        bcrypt.compare(token, tokenData.token, (err, isMatch) => {
-            if (err || !isMatch) {
-                return res.status(400).send('Invalid or expired token');
 
         // Directly compare the plain token
         if (token !== tokenData.token) {
            
-            return res.status(400).send(token.toString() === tokenData.token.toString());
+            return res.status(400).send('Invalid or expired token');
         }
 
         // If token matches, proceed with password reset
@@ -487,40 +409,29 @@ app.post('/reset-password',apiKeyMiddleware ,(req, res) => {
 
             if (userResults.length === 0) {
                 return res.status(404).send('User not found');
-
             }
 
-            // Als de token klopt, reset het wachtwoord
-            db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
+            const user = userResults[0];
+
+            // Hash the new password
+            bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
                 if (err) {
-                    return res.status(500).send('Internal Server Error');
+                    return res.status(500).send('Error hashing password');
                 }
 
-                if (userResults.length === 0) {
-                    return res.status(404).send('User not found');
-                }
-
-                const user = userResults[0];
-
-                // Hash het nieuwe wachtwoord
-                bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
+                // Update the user's password
+                db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
                     if (err) {
-                        return res.status(500).send('Error hashing password');
+                        return res.status(500).send('Error updating password');
                     }
 
-                    // Update het wachtwoord van de gebruiker
-                    db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
+                    // Optionally, delete the token after it's used
+                    db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
                         if (err) {
-                            return res.status(500).send('Error updating password');
+                            
                         }
 
-                        // Verwijder de token na succesvolle reset
-                        db.query('DELETE FROM tokens WHERE id = ?', [tokenData.id], (err) => {
-                            if (err) {
-                                console.error('Error deleting token:', err);
-                            }
-                            res.json({ message: 'Password reset successfully' });
-                        });
+                        res.json({ message: 'Password reset successfully' });
                     });
                 });
             });
@@ -531,8 +442,8 @@ app.post('/reset-password',apiKeyMiddleware ,(req, res) => {
 
 
 
-app.put('/klanten/:id/wachtwoord',apiKeyMiddleware ,(req, res) => {
 
+app.put('/klanten/:id/wachtwoord', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { oudWachtwoord, nieuwWachtwoord } = req.body;
 
@@ -584,17 +495,13 @@ app.put('/klanten/:id/wachtwoord',apiKeyMiddleware ,(req, res) => {
 
 
 
-
-// Panden
-app.get('/panden',apiKeyMiddleware ,(req, res) => {
-
-
+app.get('/panden', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM panden', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
-app.get('/panden/:id',apiKeyMiddleware ,(req, res) => {
+app.get('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
     db.query('SELECT * FROM panden WHERE id = ?', [id], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -604,18 +511,16 @@ app.get('/panden/:id',apiKeyMiddleware ,(req, res) => {
     });
 });
 
-
-app.post('/panden', (req, res) => {
+app.post('/panden', apiKeyMiddleware, (req, res) => {
     const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
     db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats, langitude, altitude) VALUES (?, ?, ?, ?, ?, ?)', 
     [postcode, straat, huisnummer, plaats, langitude, altitude], (err, results) => {
-
         if (err) return res.status(500).send(err);
         res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
 
-app.delete('/panden/:id', (req, res) => {
+app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
     db.query('DELETE FROM panden WHERE id = ?;', [id], (err, results) => {
         if (err) {
@@ -624,14 +529,14 @@ app.delete('/panden/:id', (req, res) => {
     });
 });
 // Servicetype
-app.get('/servicetype',apiKeyMiddleware ,(req, res) => {
+app.get('/servicetype', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM servicetype', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/servicetype',apiKeyMiddleware ,(req, res) => {
+app.post('/servicetype', apiKeyMiddleware, (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO servicetype (omschrijving) VALUES (?)', [omschrijving], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -640,15 +545,14 @@ app.post('/servicetype',apiKeyMiddleware ,(req, res) => {
 });
 
 // Serviceverzoek
-app.get('/serviceverzoek',apiKeyMiddleware ,(req, res) => {
+app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-
-app.post('/serviceverzoek', (req, res) => {
+app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
     [omschrijving], (err, results) => {
@@ -657,30 +561,29 @@ app.post('/serviceverzoek', (req, res) => {
     });
 });
 
-app.put('/serviceverzoek/:id', (req, res) => {
+app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
     const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
     [status, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
-        res.json({ id, status});
+        res.json({ id, status, bezichtiging });
     });
 });
->>>>>>> 043a15650ec2655f89221078bde8a82c5fde08df
 
 // Stappen
-app.get('/stappen',apiKeyMiddleware ,(req, res) => {
+app.get('/stappen', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM sv_stappen', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/stappen',apiKeyMiddleware ,(req, res) => {
+app.post('/stappen', apiKeyMiddleware, (req, res) => {
     const { omschrijving, serviceverzoek_id, externepartij_id, datum } = req.body;
     db.query('INSERT INTO sv_stappen (omschrijving, serviceverzoek_id, externepartij_id, datum) VALUES (?, ?, ?, ?)', 
     [omschrijving, serviceverzoek_id, externepartij_id, datum], (err, results) => {
@@ -689,14 +592,14 @@ app.post('/stappen',apiKeyMiddleware ,(req, res) => {
     });
 });
 
-app.get('/inschrijvingen',apiKeyMiddleware ,(req, res) => {
+app.get('/inschrijvingen', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM inschrijvingen', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/inschrijvingen',apiKeyMiddleware ,(req, res) => {
+app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
     
 
     const { hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging } = req.body;
@@ -735,19 +638,12 @@ app.post('/inschrijvingen',apiKeyMiddleware ,(req, res) => {
 });
 
 
-app.post('/serviceverzoek',apiKeyMiddleware ,(req, res) => {
-    const { omschrijving } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
-    [omschrijving], (err, results) => {
-
-
-app.put('/inschrijvingen/:id', (req, res) => { 
+app.put('/inschrijvingen/:id', apiKeyMiddleware, (req, res) => { 
     const { id } = req.params; // Haal de ID uit de URL
     const { hoeveel_personen, jaar_inkomen, bezichtiging } = req.body; // Haal de data uit de request body
 
     // Haal de bestaande gegevens op uit de database
     db.query('SELECT * FROM inschrijvingen WHERE id = ?', [id], (err, results) => {
-
         if (err) return res.status(500).send(err);
 
         if (results.length === 0) {
@@ -786,7 +682,7 @@ app.put('/inschrijvingen/:id', (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', (req, res) => {
+app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     const { omschrijving, status } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving, status) VALUES (?, ?)', 
     [omschrijving, status], (err, results) => {
@@ -796,7 +692,7 @@ app.post('/serviceverzoek', (req, res) => {
 });
 
 
-app.get('/medewerkers', (req, res) => {
+app.get('/medewerkers', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM medewerkers', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
@@ -945,7 +841,7 @@ app.put('/medewerkers/:id', async (req, res) => {
     }
 });
 
-app.delete('/medewerkers/:id', (req, res) => {
+app.delete('/medewerkers/:id', apiKeyMiddleware, (req, res) => {
     const medewerkerId = req.params.id;
 
     db.query('DELETE FROM medewerkers WHERE id = ?', [medewerkerId], (err, results) => {
