@@ -7,6 +7,14 @@ const nodemailer = require('nodemailer'); // Import nodemailer for sending email
 require('dotenv').config();
 const saltRounds = 10;
 
+const apiKeyMiddleware = (req, res, next) => {
+    const apiKey = req.headers['api-key']; // API key is sent in the 'x-api-key' header
+
+    if (!apiKey || apiKey !== process.env.API_KEY) {
+        return res.status(403).send('Forbidden: Invalid API Key');
+    }
+    next(); // Proceed to the next middleware/route handler
+};
 
 
 
@@ -37,14 +45,14 @@ const transporter = nodemailer.createTransport({
 // CRUD operations for each table
 
 // Contracten
-app.get('/contracten', (req, res) => {
+app.get('/contracten', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM contracten', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/contracten', (req, res) => {
+app.post('/contracten', apiKeyMiddleware, (req, res) => {
     const { pandid, klantid } = req.body;
     db.query('INSERT INTO contracten (pandid, klantid) VALUES (?, ?)', [pandid, klantid], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -53,14 +61,14 @@ app.post('/contracten', (req, res) => {
 });
 
 // Externe partij
-app.get('/externepartij', (req, res) => {
+app.get('/externepartij', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM externepartij', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/externepartij', (req, res) => {
+app.post('/externepartij', apiKeyMiddleware, (req, res) => {
     const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
     db.query('INSERT INTO externepartij (bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon) VALUES (?, ?, ?, ?, ?)', 
     [bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon], (err, results) => {
@@ -69,7 +77,7 @@ app.post('/externepartij', (req, res) => {
     });
 });
 
-app.put('/externepartij/:id', (req, res) => {
+app.put('/externepartij/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { bedrijfsnaam, contactpersoon, email_contactpersoon, telefoonnummer_bedrijf, telefoon_contactpersoon } = req.body;
 
@@ -101,7 +109,7 @@ app.put('/externepartij/:id', (req, res) => {
 });
 
 // Klanten
-app.get('/klanten', (req, res) => {
+app.get('/klanten', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM klanten', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
@@ -147,7 +155,7 @@ app.post('/klanten/login', async (req, res) => {
     });
 });
 
-app.get('/klanten/:id', (req, res) => {
+app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -174,7 +182,7 @@ app.post('/klanten', async (req, res) => {
                 }
 
                 // Create the verification link
-                const verificationLink = `https://api.22literverf.store/verify-email/${results.insertId}`;
+                const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
 
                 // Email options
                 const mailOptions = {
@@ -212,7 +220,7 @@ app.post('/klanten', async (req, res) => {
 });
 
 
-app.get('/verify-email/:id', (req, res) => {
+app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -232,7 +240,7 @@ app.get('/verify-email/:id', (req, res) => {
 });
 
 
-app.delete('/klanten/:id', (req, res) => {
+app.delete('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
 
     // Verwijder eerst gerelateerde serviceverzoeken
@@ -265,7 +273,7 @@ app.delete('/klanten/:id', (req, res) => {
     });
 });
 
-app.put('/klanten/:id', (req, res) => {
+app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats } = req.body;
 
@@ -310,8 +318,6 @@ app.put('/klanten/:id', (req, res) => {
         );
     });
 });
-
-
 
 // app.post('/request-password-reset', (req, res) => {
 //     const { email } = req.body;
@@ -553,9 +559,7 @@ app.post('/reset-password', (req, res) => {
 
 
 
-
-
-app.put('/klanten/:id/wachtwoord', (req, res) => {
+app.put('/klanten/:id/wachtwoord', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;
     const { oudWachtwoord, nieuwWachtwoord } = req.body;
 
@@ -607,14 +611,13 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
 
 
 
-
-app.get('/panden', (req, res) => {
+app.get('/panden', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM panden', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
-app.get('/panden/:id', (req, res) => {
+app.get('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
     db.query('SELECT * FROM panden WHERE id = ?', [id], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -624,7 +627,7 @@ app.get('/panden/:id', (req, res) => {
     });
 });
 
-app.post('/panden', (req, res) => {
+app.post('/panden', apiKeyMiddleware, (req, res) => {
     const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
     db.query('INSERT INTO panden (postcode, straat, huisnummer, plaats, langitude, altitude) VALUES (?, ?, ?, ?, ?, ?)', 
     [postcode, straat, huisnummer, plaats, langitude, altitude], (err, results) => {
@@ -633,7 +636,7 @@ app.post('/panden', (req, res) => {
     });
 });
 
-app.delete('/panden/:id', (req, res) => {
+app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
     db.query('DELETE FROM panden WHERE id = ?;', [id], (err, results) => {
         if (err) {
@@ -642,14 +645,14 @@ app.delete('/panden/:id', (req, res) => {
     });
 });
 // Servicetype
-app.get('/servicetype', (req, res) => {
+app.get('/servicetype', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM servicetype', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/servicetype', (req, res) => {
+app.post('/servicetype', apiKeyMiddleware, (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO servicetype (omschrijving) VALUES (?)', [omschrijving], (err, results) => {
         if (err) return res.status(500).send(err);
@@ -658,14 +661,14 @@ app.post('/servicetype', (req, res) => {
 });
 
 // Serviceverzoek
-app.get('/serviceverzoek', (req, res) => {
+app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/serviceverzoek', (req, res) => {
+app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
     [omschrijving], (err, results) => {
@@ -674,7 +677,7 @@ app.post('/serviceverzoek', (req, res) => {
     });
 });
 
-app.put('/serviceverzoek/:id', (req, res) => {
+app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
     const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
@@ -689,14 +692,14 @@ app.put('/serviceverzoek/:id', (req, res) => {
 });
 
 // Stappen
-app.get('/stappen', (req, res) => {
+app.get('/stappen', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM sv_stappen', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/stappen', (req, res) => {
+app.post('/stappen', apiKeyMiddleware, (req, res) => {
     const { omschrijving, serviceverzoek_id, externepartij_id, datum } = req.body;
     db.query('INSERT INTO sv_stappen (omschrijving, serviceverzoek_id, externepartij_id, datum) VALUES (?, ?, ?, ?)', 
     [omschrijving, serviceverzoek_id, externepartij_id, datum], (err, results) => {
@@ -705,14 +708,14 @@ app.post('/stappen', (req, res) => {
     });
 });
 
-app.get('/inschrijvingen', (req, res) => {
+app.get('/inschrijvingen', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM inschrijvingen', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
 });
 
-app.post('/inschrijvingen', (req, res) => {
+app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
     
 
     const { hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging } = req.body;
@@ -751,7 +754,7 @@ app.post('/inschrijvingen', (req, res) => {
 });
 
 
-app.put('/inschrijvingen/:id', (req, res) => { 
+app.put('/inschrijvingen/:id', apiKeyMiddleware, (req, res) => { 
     const { id } = req.params; // Haal de ID uit de URL
     const { hoeveel_personen, jaar_inkomen, bezichtiging } = req.body; // Haal de data uit de request body
 
@@ -795,7 +798,7 @@ app.put('/inschrijvingen/:id', (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', (req, res) => {
+app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     const { omschrijving, status } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving, status) VALUES (?, ?)', 
     [omschrijving, status], (err, results) => {
@@ -805,7 +808,7 @@ app.post('/serviceverzoek', (req, res) => {
 });
 
 
-app.get('/medewerkers', (req, res) => {
+app.get('/medewerkers', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM medewerkers', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
@@ -954,7 +957,7 @@ app.put('/medewerkers/:id', async (req, res) => {
     }
 });
 
-app.delete('/medewerkers/:id', (req, res) => {
+app.delete('/medewerkers/:id', apiKeyMiddleware, (req, res) => {
     const medewerkerId = req.params.id;
 
     db.query('DELETE FROM medewerkers WHERE id = ?', [medewerkerId], (err, results) => {
