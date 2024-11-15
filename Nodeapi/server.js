@@ -163,7 +163,7 @@ app.post('/klanten', async (req, res) => {
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
-            'INSERT INTO klanten (email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 
             [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
@@ -429,15 +429,15 @@ app.post('/serviceverzoek', (req, res) => {
 
 app.put('/serviceverzoek/:id', (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
-    const { omschrijving } = req.body;  // Haal de nieuwe omschrijving uit het verzoek
+    const { omschrijving, bezichtiging } = req.body;  // Haal de nieuwe omschrijving en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET omschrijving = ? WHERE id = ?', 
-    [omschrijving, id], (err, results) => {
+    db.query('UPDATE serviceverzoek SET omschrijving = ?, bezichtiging = ? WHERE id = ?', 
+    [omschrijving, bezichtiging, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
-        res.json({ id, omschrijving });
+        res.json({ id, omschrijving, bezichtiging });
     });
 });
 
