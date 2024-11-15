@@ -434,7 +434,7 @@ app.post('/reset-password', (req, res) => {
 
 
 
-/** 
+
 app.put('/klanten/:id/wachtwoord', (req, res) => {
     const { id } = req.params;
     const { oudWachtwoord, nieuwWachtwoord } = req.body;
@@ -484,7 +484,7 @@ app.put('/klanten/:id/wachtwoord', (req, res) => {
         });
     });
 });
-*/
+
 
 
 app.get('/panden', (req, res) => {
@@ -695,6 +695,44 @@ app.post('/medewerkers', async (req, res) => {
     } catch (err) {
         res.status(500).send('Error hashing password');
     }
+});
+
+app.post('/medewerker/login', async (req, res) => {
+    const { email, wachtwoord } = req.body;
+
+    db.query('SELECT * FROM medewerkers WHERE email = ?', [email], async (err, results) => {
+        if (err) {
+            
+            return res.status(500).send('Er is een fout opgetreden.');
+        }
+
+        if (results.length === 0) {
+            return res.status(400).send('Medewerker niet gevonden.');
+        }
+
+        const medewerker = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, medewerker.wachtwoord);
+            
+
+            if (!isMatch) {
+                return res.status(400).send('Onjuist wachtwoord.');
+            }
+
+            // Verwijder het wachtwoord uit de medewerkergegevens voordat je ze terugstuurt
+            delete medewerker.wachtwoord;
+
+            // Log de volledige medewerkersgegevens in de console
+            
+
+            // Stuur de volledige medewerkersgegevens terug als JSON
+            res.json(medewerker);
+        } catch (compareError) {
+            
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
+    });
 });
 
 app.put('/medewerkers/:id', async (req, res) => {
