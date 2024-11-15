@@ -165,7 +165,7 @@ app.post('/klanten', async (req, res) => {
         db.query(
             'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
 
-            [email, voornaam, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+            [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
 
                 if (err) {
@@ -429,10 +429,10 @@ app.post('/serviceverzoek', (req, res) => {
 
 app.put('/serviceverzoek/:id', (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
-    const { status, bezichtiging } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
+    const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?, bezichtiging = ? WHERE id = ?', 
-    [status, bezichtiging, id], (err, results) => {
+    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    [status, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
@@ -472,6 +472,33 @@ app.post('/inschrijvingen', (req, res) => {
         if (err) return res.status(500).send(err);
         res.json({ hoeveel_personen, jaar_inkomen });
     });
+});
+
+app.put('/inschrijvingen/:id', (req, res) => { 
+    const { id } = req.params; // Haal de ID uit de URL
+    const { hoeveel_personen, jaar_inkomen, bezichtiging_status } = req.body; // Haal de data uit de request body
+
+    // Update de inschrijving in de database
+    db.query(
+        'UPDATE inschrijvingen SET hoeveel_personen = ?, jaar_inkomen = ?, bezichtiging_status = ? WHERE id = ?', 
+        [hoeveel_personen, jaar_inkomen, bezichtiging_status, id], 
+        (err, results) => {
+            if (err) return res.status(500).send(err);
+            
+            // Als de update gelukt is, stuur je een succesbericht terug
+            if (results.affectedRows > 0) {
+                res.json({ 
+                    message: 'Inschrijving succesvol bijgewerkt', 
+                    id, 
+                    hoeveel_personen, 
+                    jaar_inkomen, 
+                    bezichtiging_status 
+                });
+            } else {
+                res.status(404).json({ message: 'Inschrijving niet gevonden' });
+            }
+        }
+    );
 });
 app.post('/serviceverzoek', (req, res) => {
     const { omschrijving } = req.body;
