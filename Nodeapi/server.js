@@ -188,10 +188,28 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
                 const mailOptions = {
                     from: '"Comfortliving" <your-email@example.com>',
                     to: email,
-                    subject: 'Verify Your Email Address',
-                    html: `<p>Hello ${voornaam},</p><p>Please verify your email by clicking the link: <a href="${verificationLink}">Verify Email</a></p>`
+                    subject: 'Verifieer je e-mailadres',
+                    text: `Hallo ${voornaam} ${achternaam},\n\nVerifieer je e-mailadres door op de volgende link te klikken: ${verificationLink}\n\nDank je wel,\nHet Comfortliving-team`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                            <h2 style="color: #333;">Verifieer je e-mailadres</h2>
+                            <p>Hallo ${voornaam} ${achternaam},</p>
+                            <p>Verifieer je e-mailadres door op de onderstaande knop te klikken:</p>
+                            <p style="text-align: center;">
+                                <a 
+                                    href="${verificationLink}"
+                                    style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 5px;"
+                                >
+                                    Verifieer e-mailadres
+                                </a>
+                            </p>
+                            <p>Als je geen account hebt aangemaakt, kun je deze e-mail negeren.</p>
+                            <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                        </div>
+                    `,
                 };
-
+                
+                
                 // Send the email
                 try {
                     await transporter.sendMail(mailOptions);
@@ -401,9 +419,27 @@ app.post('/request-password-reset',apiKeyMiddleware, (req, res) => {
                     const mailOptions = {
                         from: process.env.EMAIL_USER,
                         to: email,
-                        subject: 'Password Reset Request',
-                        text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${plainToken}`,
+                        subject: 'Stel je wachtwoord opnieuw in',
+                        text: `Klik op de volgende link om je wachtwoord opnieuw in te stellen: http://localhost:3000/reset-password?token=${plainToken}`,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                                <h2 style="color: #333;">Wachtwoord opnieuw instellen</h2>
+                                <p>Hallo,</p>
+                                <p>Je hebt een verzoek ingediend om je wachtwoord opnieuw in te stellen. Klik op de onderstaande knop om dit proces te voltooien:</p>
+                                <p style="text-align: center;">
+                                    <a 
+                                        href="http://localhost:3000/reset-password?token=${plainToken}"
+                                        style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #007BFF; color: #fff; text-decoration: none; border-radius: 5px;"
+                                    >
+                                        Wachtwoord resetten
+                                    </a>
+                                </p>
+                                <p>Als je geen wachtwoordreset hebt aangevraagd, kun je deze e-mail negeren.</p>
+                                <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                            </div>
+                        `,
                     };
+                    
 
                     transporter.sendMail(mailOptions, (err) => {
                         if (err) {
