@@ -166,7 +166,7 @@ app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.post('/klanten', async (req, res) => {
+app.post('/klanten',apiKeyMiddleware, async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
@@ -220,7 +220,7 @@ app.post('/klanten', async (req, res) => {
 });
 
 
-app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
+app.get('/verify-email/:id', (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -365,7 +365,7 @@ app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
 // });
 
 
-app.post('/request-password-reset', (req, res) => {
+app.post('/request-password-reset',apiKeyMiddleware, (req, res) => {
     const { email } = req.body;
 
     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
