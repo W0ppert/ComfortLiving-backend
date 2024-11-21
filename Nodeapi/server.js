@@ -17,7 +17,6 @@ const apiKeyMiddleware = (req, res, next) => {
 };
 
 
-console.log('API Key from .env:', process.env.API_KEY);
 
 // Create an Express app
 const corsOptions = {
@@ -60,6 +59,49 @@ app.post('/contracten', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, pandid, klantid });
     });
 });
+
+app.put('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { pandid, klantid } = req.body;
+
+    // Validate input
+    if (!pandid || !klantid) {
+        return res.status(400).send({ message: 'Velden pandid en klantid zijn verplicht.' });
+    }
+
+    db.query(
+        'UPDATE contracten SET pandid = ?, klantid = ? WHERE id = ?',
+        [pandid, klantid, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het bijwerken van het contract.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Contract niet gevonden.' });
+            }
+
+            res.json({ message: 'Contract succesvol bijgewerkt.', id, pandid, klantid });
+        }
+    );
+});
+
+app.delete('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+
+    db.query('DELETE FROM contracten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van het contract.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Contract niet gevonden.' });
+        }
+
+        res.json({ message: 'Contract succesvol verwijderd.', id });
+    });
+});
+
 
 // Externe partij
 app.get('/externepartij', apiKeyMiddleware, (req, res) => {
@@ -108,6 +150,22 @@ app.put('/externepartij/:id', apiKeyMiddleware, (req, res) => {
         );
     });
 });
+app.delete('/externepartij/:id', apiKeyMiddleware, (req, res) => {
+    const { id } = req.params;
+
+    db.query('DELETE FROM externepartij WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de externe partij.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Externe partij niet gevonden.' });
+        }
+
+        res.json({ message: 'Externe partij succesvol verwijderd.', id });
+    });
+});
+
 
 // Klanten
 app.get('/klanten', apiKeyMiddleware, (req, res) => {
@@ -174,8 +232,10 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+
             [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
+
                 if (err) {
                     return res.status(500).send(err);
                 }
@@ -217,21 +277,16 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
                     console.error('Error sending email:', mailError);
                 }
 
-                // Send success message to frontend
                 res.json({
-                    success: true,
-                    message: `Registratie succesvol! Welkom, ${voornaam}. Controleer je e-mail om je account te verifiëren.`,
-                    klant: {
-                        id: results.insertId,
-                        email,
-                        voornaam,
-                        tussenvoegsel,
-                        achternaam,
-                        geslacht,
-                        geboortedatum,
-                        huidig_woonadres,
-                        telefoonnummer
-                    }
+                    id: results.insertId,
+                    email,
+                    voornaam,
+                    tussenvoegsel,
+                    achternaam,
+                    geslacht,
+                    geboortedatum,
+                    huidig_woonadres,
+                    telefoonnummer
                 });
             }
         );
@@ -242,7 +297,7 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
 });
 
 
-app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
+app.get('/verify-email/:id', (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -675,6 +730,34 @@ app.post('/panden', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
+app.put('/panden/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+
+    // Check if all fields are provided
+    if (!postcode || !straat || !huisnummer || !plaats || !langitude || !altitude) {
+        return res.status(400).send({ message: 'Alle velden zijn verplicht.' });
+    }
+
+    db.query(
+        `UPDATE panden 
+         SET postcode = ?, straat = ?, huisnummer = ?, plaats = ?, langitude = ?, altitude = ? 
+         WHERE id = ?`,
+        [postcode, straat, huisnummer, plaats, langitude, altitude, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het updaten van het pand.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Pand niet gevonden.' });
+            }
+
+            res.json({ message: 'Pand succesvol bijgewerkt.', id, postcode, straat, huisnummer, plaats, langitude, altitude });
+        }
+    );
+});
+
 
 app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
