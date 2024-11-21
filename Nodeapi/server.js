@@ -216,7 +216,7 @@ app.post('/klanten', apiKeyMiddleware, async (req, res) => {
                     if (err) {
                         return res.status(500).send(err);
                     }
-
+                    
                     // Create the verification link
                     const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
 
@@ -252,8 +252,10 @@ app.post('/klanten', apiKeyMiddleware, async (req, res) => {
                     } catch (mailError) {
                         console.error('Error sending email:', mailError);
                     }
+                    
 
                     res.json({
+                        message: 'Klant succesvol geregistreerd. Verifieer je e-mailadres om in te loggen.',
                         id: results.insertId,
                         email,
                         voornaam,
@@ -304,76 +306,7 @@ app.post('/klanten/login', async (req, res) => {
     });
 });
 
-app.post('/klanten',apiKeyMiddleware, async (req, res) => {
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
-    try {
-        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
-        db.query(
-            'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-
-            [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
-            async (err, results) => {
-
-                if (err) {
-                    return res.status(500).send(err);
-                }
-
-                // Create the verification link
-                const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
-
-                // Email options
-                const mailOptions = {
-                    from: '"Comfortliving" <your-email@example.com>',
-                    to: email,
-                    subject: 'Verifieer je e-mailadres',
-                    text: `Hallo ${voornaam} ${achternaam},\n\nVerifieer je e-mailadres door op de volgende link te klikken: ${verificationLink}\n\nDank je wel,\nHet Comfortliving-team`,
-                    html: `
-                        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-                            <h2 style="color: #333;">Verifieer je e-mailadres</h2>
-                            <p>Hallo ${voornaam} ${achternaam},</p>
-                            <p>Verifieer je e-mailadres door op de onderstaande knop te klikken:</p>
-                            <p style="text-align: center;">
-                                <a 
-                                    href="${verificationLink}"
-                                    style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 5px;"
-                                >
-                                    Verifieer e-mailadres
-                                </a>
-                            </p>
-                            <p>Als je geen account hebt aangemaakt, kun je deze e-mail negeren.</p>
-                            <p>Met vriendelijke groet,<br>team Comfortliving</p>
-                        </div>
-                    `,
-                };
-                
-                
-                // Send the email
-                try {
-                    await transporter.sendMail(mailOptions);
-                    console.log('Verification email sent to:', email);
-                } catch (mailError) {
-                    console.error('Error sending email:', mailError);
-                }
-
-                res.json({
-                    id: results.insertId,
-                    email,
-                    voornaam,
-                    tussenvoegsel,
-                    achternaam,
-                    geslacht,
-                    geboortedatum,
-                    huidig_woonadres,
-                    telefoonnummer
-                });
-            }
-        );
-    } catch (err) {
-        console.error('Error hashing password: ', err);
-        res.status(500).send('Error occurred during registration.');
-    }
-});
 
 
 app.get('/verify-email/:id', (req, res) => {
