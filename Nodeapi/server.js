@@ -282,6 +282,27 @@ app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
         res.json(user);
     });
 });
+app.post('/klanten/login', async (req, res) => {
+    const { email, wachtwoord } = req.body;
+
+    db.query('SELECT * FROM klanten WHERE email = ?', [email], async (err, results) => {
+        if (err) return res.status(500).send('Er is een fout opgetreden.');
+        
+        if (results.length === 0) return res.status(400).send('Gebruiker niet gevonden.');
+
+        const klant = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
+            if (!isMatch) return res.status(400).send('Onjuist wachtwoord.');
+
+            delete klant.wachtwoord; // Remove the password from the response
+            res.json(klant);
+        } catch (compareError) {
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
+    });
+});
 
 app.post('/klanten',apiKeyMiddleware, async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
