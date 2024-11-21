@@ -17,7 +17,6 @@ const apiKeyMiddleware = (req, res, next) => {
 };
 
 
-console.log('API Key from .env:', process.env.API_KEY);
 
 // Create an Express app
 const corsOptions = {
@@ -60,6 +59,49 @@ app.post('/contracten', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, pandid, klantid });
     });
 });
+
+app.put('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { pandid, klantid } = req.body;
+
+    // Validate input
+    if (!pandid || !klantid) {
+        return res.status(400).send({ message: 'Velden pandid en klantid zijn verplicht.' });
+    }
+
+    db.query(
+        'UPDATE contracten SET pandid = ?, klantid = ? WHERE id = ?',
+        [pandid, klantid, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het bijwerken van het contract.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Contract niet gevonden.' });
+            }
+
+            res.json({ message: 'Contract succesvol bijgewerkt.', id, pandid, klantid });
+        }
+    );
+});
+
+app.delete('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+
+    db.query('DELETE FROM contracten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van het contract.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Contract niet gevonden.' });
+        }
+
+        res.json({ message: 'Contract succesvol verwijderd.', id });
+    });
+});
+
 
 // Externe partij
 app.get('/externepartij', apiKeyMiddleware, (req, res) => {
@@ -108,6 +150,22 @@ app.put('/externepartij/:id', apiKeyMiddleware, (req, res) => {
         );
     });
 });
+app.delete('/externepartij/:id', apiKeyMiddleware, (req, res) => {
+    const { id } = req.params;
+
+    db.query('DELETE FROM externepartij WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de externe partij.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Externe partij niet gevonden.' });
+        }
+
+        res.json({ message: 'Externe partij succesvol verwijderd.', id });
+    });
+});
+
 
 // Klanten
 app.get('/klanten', apiKeyMiddleware, (req, res) => {
@@ -167,15 +225,17 @@ app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.post('/klanten', async (req, res) => {
+app.post('/klanten',apiKeyMiddleware, async (req, res) => {
     const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
     try {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+
             [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
+
                 if (err) {
                     return res.status(500).send(err);
                 }
@@ -187,10 +247,28 @@ app.post('/klanten', async (req, res) => {
                 const mailOptions = {
                     from: '"Comfortliving" <your-email@example.com>',
                     to: email,
-                    subject: 'Verify Your Email Address',
-                    html: `<p>Hello ${voornaam},</p><p>Please verify your email by clicking the link: <a href="${verificationLink}">Verify Email</a></p>`
+                    subject: 'Verifieer je e-mailadres',
+                    text: `Hallo ${voornaam} ${achternaam},\n\nVerifieer je e-mailadres door op de volgende link te klikken: ${verificationLink}\n\nDank je wel,\nHet Comfortliving-team`,
+                    html: `
+                        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                            <h2 style="color: #333;">Verifieer je e-mailadres</h2>
+                            <p>Hallo ${voornaam} ${achternaam},</p>
+                            <p>Verifieer je e-mailadres door op de onderstaande knop te klikken:</p>
+                            <p style="text-align: center;">
+                                <a 
+                                    href="${verificationLink}"
+                                    style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 5px;"
+                                >
+                                    Verifieer e-mailadres
+                                </a>
+                            </p>
+                            <p>Als je geen account hebt aangemaakt, kun je deze e-mail negeren.</p>
+                            <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                        </div>
+                    `,
                 };
-
+                
+                
                 // Send the email
                 try {
                     await transporter.sendMail(mailOptions);
@@ -199,21 +277,16 @@ app.post('/klanten', async (req, res) => {
                     console.error('Error sending email:', mailError);
                 }
 
-                // Send success message to frontend
                 res.json({
-                    success: true,
-                    message: `Registratie succesvol! Welkom, ${voornaam}. Controleer je e-mail om je account te verifiëren.`,
-                    klant: {
-                        id: results.insertId,
-                        email,
-                        voornaam,
-                        tussenvoegsel,
-                        achternaam,
-                        geslacht,
-                        geboortedatum,
-                        huidig_woonadres,
-                        telefoonnummer
-                    }
+                    id: results.insertId,
+                    email,
+                    voornaam,
+                    tussenvoegsel,
+                    achternaam,
+                    geslacht,
+                    geboortedatum,
+                    huidig_woonadres,
+                    telefoonnummer
                 });
             }
         );
@@ -224,7 +297,7 @@ app.post('/klanten', async (req, res) => {
 });
 
 
-app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
+app.get('/verify-email/:id', (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -369,7 +442,7 @@ app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
 // });
 
 
-app.post('/request-password-reset', (req, res) => {
+app.post('/request-password-reset',apiKeyMiddleware, (req, res) => {
     const { email } = req.body;
 
     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
@@ -405,9 +478,27 @@ app.post('/request-password-reset', (req, res) => {
                     const mailOptions = {
                         from: process.env.EMAIL_USER,
                         to: email,
-                        subject: 'Password Reset Request',
-                        text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${plainToken}`,
+                        subject: 'Stel je wachtwoord opnieuw in',
+                        text: `Klik op de volgende link om je wachtwoord opnieuw in te stellen: http://localhost:3000/reset-password?token=${plainToken}`,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                                <h2 style="color: #333;">Wachtwoord opnieuw instellen</h2>
+                                <p>Hallo,</p>
+                                <p>Je hebt een verzoek ingediend om je wachtwoord opnieuw in te stellen. Klik op de onderstaande knop om dit proces te voltooien:</p>
+                                <p style="text-align: center;">
+                                    <a 
+                                        href="http://localhost:3000/reset-password?token=${plainToken}"
+                                        style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #007BFF; color: #fff; text-decoration: none; border-radius: 5px;"
+                                    >
+                                        Wachtwoord resetten
+                                    </a>
+                                </p>
+                                <p>Als je geen wachtwoordreset hebt aangevraagd, kun je deze e-mail negeren.</p>
+                                <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                            </div>
+                        `,
                     };
+                    
 
                     transporter.sendMail(mailOptions, (err) => {
                         if (err) {
@@ -639,6 +730,34 @@ app.post('/panden', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
+app.put('/panden/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+
+    // Check if all fields are provided
+    if (!postcode || !straat || !huisnummer || !plaats || !langitude || !altitude) {
+        return res.status(400).send({ message: 'Alle velden zijn verplicht.' });
+    }
+
+    db.query(
+        `UPDATE panden 
+         SET postcode = ?, straat = ?, huisnummer = ?, plaats = ?, langitude = ?, altitude = ? 
+         WHERE id = ?`,
+        [postcode, straat, huisnummer, plaats, langitude, altitude, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het updaten van het pand.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Pand niet gevonden.' });
+            }
+
+            res.json({ message: 'Pand succesvol bijgewerkt.', id, postcode, straat, huisnummer, plaats, langitude, altitude });
+        }
+    );
+});
+
 
 app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
@@ -685,13 +804,13 @@ app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
     const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
     [status, id], (err, results) => {
         if (err) return res.status(500).send(err);
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
-        res.json({ id, status});
+        res.json({ id, status, bezichtiging });
     });
 });
 
