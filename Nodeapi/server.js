@@ -17,6 +17,7 @@ const apiKeyMiddleware = (req, res, next) => {
 };
 
 
+console.log('API Key from .env:', process.env.API_KEY);
 
 // Create an Express app
 const corsOptions = {
@@ -173,10 +174,8 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
         db.query(
             'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-
             [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
             async (err, results) => {
-
                 if (err) {
                     return res.status(500).send(err);
                 }
@@ -218,16 +217,21 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
                     console.error('Error sending email:', mailError);
                 }
 
+                // Send success message to frontend
                 res.json({
-                    id: results.insertId,
-                    email,
-                    voornaam,
-                    tussenvoegsel,
-                    achternaam,
-                    geslacht,
-                    geboortedatum,
-                    huidig_woonadres,
-                    telefoonnummer
+                    success: true,
+                    message: `Registratie succesvol! Welkom, ${voornaam}. Controleer je e-mail om je account te verifiëren.`,
+                    klant: {
+                        id: results.insertId,
+                        email,
+                        voornaam,
+                        tussenvoegsel,
+                        achternaam,
+                        geslacht,
+                        geboortedatum,
+                        huidig_woonadres,
+                        telefoonnummer
+                    }
                 });
             }
         );
@@ -238,7 +242,7 @@ app.post('/klanten',apiKeyMiddleware, async (req, res) => {
 });
 
 
-app.get('/verify-email/:id', (req, res) => {
+app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
