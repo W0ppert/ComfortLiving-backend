@@ -671,6 +671,13 @@ app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     });
 });
 
+app.get('/serviceverzoe/:id', apiKeyMiddleware, (req, res) => {
+    db.query('SELECT * FROM serviceverzoek WHERE id = ?', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
 app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     const { omschrijving } = req.body;
     db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
