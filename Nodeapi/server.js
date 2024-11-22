@@ -664,34 +664,102 @@ app.post('/panden', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
+
 app.put('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
-    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+    const newData = req.body;
 
-    // Check if all fields are provided
-    if (!postcode || !straat || !huisnummer || !plaats || !langitude || !altitude) {
-        return res.status(400).send({ message: 'Alle velden zijn verplicht.' });
+    // Controleer of `id` aanwezig is
+    if (!id) {
+        return res.status(400).send({ message: 'ID is verplicht.' });
     }
 
-    db.query(
-        `UPDATE panden 
-         SET postcode = ?, straat = ?, huisnummer = ?, plaats = ?, langitude = ?, altitude = ? 
-         WHERE id = ?`,
-        [postcode, straat, huisnummer, plaats, langitude, altitude, id],
-        (err, results) => {
-            if (err) {
-                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het updaten van het pand.', error: err });
-            }
-
-            if (results.affectedRows === 0) {
-                return res.status(404).send({ message: 'Pand niet gevonden.' });
-            }
-
-            res.json({ message: 'Pand succesvol bijgewerkt.', id, postcode, straat, huisnummer, plaats, langitude, altitude });
+    // Haal de bestaande gegevens op uit de database
+    db.query(`SELECT * FROM panden WHERE id = ?`, [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden bij het ophalen van het pand.', error: err });
         }
-    );
-});
 
+        if (results.length === 0) {
+            return res.status(404).send({ message: 'Pand niet gevonden.' });
+        }
+
+        const existingData = results[0];
+
+        // Combineer nieuwe data met bestaande data
+        const updatedData = {
+            straat: newData.straat || existingData.straat,
+            huisnummer: newData.huisnummer || existingData.huisnummer,
+            bij_voegsel: newData.bij_voegsel || existingData.bij_voegsel,
+            postcode: newData.postcode || existingData.postcode,
+            plaats: newData.plaats || existingData.plaats,
+            fotos: newData.fotos || existingData.fotos,
+            prijs: newData.prijs || existingData.prijs,
+            omschrijving: newData.omschrijving || existingData.omschrijving,
+            oppervlakte: newData.oppervlakte || existingData.oppervlakte,
+            energielabel: newData.energielabel || existingData.energielabel,
+            slaapkamers: newData.slaapkamers || existingData.slaapkamers,
+            aangeboden_sinds: newData.aangeboden_sinds || existingData.aangeboden_sinds,
+            type: newData.type || existingData.type,
+            latitude: newData.latitude || existingData.latitude,
+            longitude: newData.longitude || existingData.longitude
+        };
+
+        // Update de gegevens in de database
+        db.query(
+            `UPDATE panden 
+             SET 
+                 straat = ?, 
+                 huisnummer = ?, 
+                 bij_voegsel = ?, 
+                 postcode = ?, 
+                 plaats = ?, 
+                 fotos = ?, 
+                 prijs = ?, 
+                 omschrijving = ?, 
+                 oppervlakte = ?, 
+                 energielabel = ?, 
+                 slaapkamers = ?, 
+                 aangeboden_sinds = ?, 
+                 type = ?, 
+                 latitude = ?, 
+                 longitude = ? 
+             WHERE id = ?`,
+            [
+                updatedData.straat,
+                updatedData.huisnummer,
+                updatedData.bij_voegsel,
+                updatedData.postcode,
+                updatedData.plaats,
+                updatedData.fotos,
+                updatedData.prijs,
+                updatedData.omschrijving,
+                updatedData.oppervlakte,
+                updatedData.energielabel,
+                updatedData.slaapkamers,
+                updatedData.aangeboden_sinds,
+                updatedData.type,
+                updatedData.latitude,
+                updatedData.longitude,
+                id
+            ],
+            (updateErr, updateResults) => {
+                if (updateErr) {
+                    return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het bijwerken van het pand.', error: updateErr });
+                }
+
+                if (updateResults.affectedRows === 0) {
+                    return res.status(404).send({ message: 'Pand niet gevonden.' });
+                }
+
+                res.json({
+                    message: 'Pand succesvol bijgewerkt.',
+                    pand: updatedData
+                });
+            }
+        );
+    });
+});
 
 app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
@@ -720,6 +788,13 @@ app.post('/servicetype', apiKeyMiddleware, (req, res) => {
 // Serviceverzoek
 app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
+app.get('/serviceverzoe/:id', apiKeyMiddleware, (req, res) => {
+    db.query('SELECT * FROM serviceverzoek WHERE id = ?', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
     });
