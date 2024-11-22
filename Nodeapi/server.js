@@ -16,6 +16,16 @@ const apiKeyMiddleware = (req, res, next) => {
     next(); // Proceed to the next middleware/route handler
 };
 
+const validatePassword = (password) => {
+    const minLength = 8;
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecialChar = /[@$!%*?&#]/.test(password);
+
+    return password.length >= minLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar;
+};
+
 
 
 // Create an Express app
@@ -59,6 +69,49 @@ app.post('/contracten', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, pandid, klantid });
     });
 });
+
+app.put('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { pandid, klantid } = req.body;
+
+    // Validate input
+    if (!pandid || !klantid) {
+        return res.status(400).send({ message: 'Velden pandid en klantid zijn verplicht.' });
+    }
+
+    db.query(
+        'UPDATE contracten SET pandid = ?, klantid = ? WHERE id = ?',
+        [pandid, klantid, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het bijwerken van het contract.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Contract niet gevonden.' });
+            }
+
+            res.json({ message: 'Contract succesvol bijgewerkt.', id, pandid, klantid });
+        }
+    );
+});
+
+app.delete('/contracten/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+
+    db.query('DELETE FROM contracten WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van het contract.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Contract niet gevonden.' });
+        }
+
+        res.json({ message: 'Contract succesvol verwijderd.', id });
+    });
+});
+
 
 // Externe partij
 app.get('/externepartij', apiKeyMiddleware, (req, res) => {
@@ -107,6 +160,22 @@ app.put('/externepartij/:id', apiKeyMiddleware, (req, res) => {
         );
     });
 });
+app.delete('/externepartij/:id', apiKeyMiddleware, (req, res) => {
+    const { id } = req.params;
+
+    db.query('DELETE FROM externepartij WHERE id = ?', [id], (err, results) => {
+        if (err) {
+            return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het verwijderen van de externe partij.', error: err });
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send({ message: 'Externe partij niet gevonden.' });
+        }
+
+        res.json({ message: 'Externe partij succesvol verwijderd.', id });
+    });
+});
+
 
 // Klanten
 app.get('/klanten', apiKeyMiddleware, (req, res) => {
@@ -117,44 +186,94 @@ app.get('/klanten', apiKeyMiddleware, (req, res) => {
 });
 
 
-app.post('/klanten/login', async (req, res) => {
-    const { email, wachtwoord } = req.body;
+app.post('/klanten', apiKeyMiddleware, async (req, res) => {
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
 
-    db.query('SELECT * FROM klanten WHERE email = ?', [email], async (err, results) => {
-        if (err) {
-            
-            return res.status(500).send('Er is een fout opgetreden.');
-        }
+    // Validate password strength
+    if (!validatePassword(wachtwoord)) {
+        return res.status(400).send('Wachtwoord voldoet niet aan de vereisten. Minimaal 8 tekens, inclusief hoofdletter, kleine letter, nummer en speciaal teken.');
+    }
 
-        if (results.length === 0) {
-            return res.status(400).send('Gebruiker niet gevonden.');
-        }
-
-        const klant = results[0];
-
-        try {
-            const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
-            
-
-            if (!isMatch) {
-                return res.status(400).send('Onjuist wachtwoord.');
+    try {
+        // Check if the email already exists
+        db.query('SELECT * FROM klanten WHERE email = ?', [email], async (err, results) => {
+            if (err) {
+                return res.status(500).send('Databasefout bij het controleren van e-mail.');
             }
 
-            // Verwijder het wachtwoord uit de klantgegevens voordat je ze terugstuurt
-            delete klant.wachtwoord;
+            if (results.length > 0) {
+                return res.status(400).send('Een klant met dit e-mailadres bestaat al.');
+            }
 
-            // Log de volledige gebruikersgegevens in de console
-            
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(wachtwoord, 10);
 
-            // Stuur de volledige gebruikersgegevens terug als JSON
-            res.json(klant);
-        } catch (compareError) {
-            
-            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
-        }
-    });
+            // Insert the new klant
+            db.query(
+                'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+                async (err, results) => {
+                    if (err) {
+                        return res.status(500).send(err);
+                    }
+                    
+                    // Create the verification link
+                    const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
+
+                    // Email options
+                    const mailOptions = {
+                        from: '"Comfortliving" <your-email@example.com>',
+                        to: email,
+                        subject: 'Verifieer je e-mailadres',
+                        text: `Hallo ${voornaam} ${achternaam},\n\nVerifieer je e-mailadres door op de volgende link te klikken: ${verificationLink}\n\nDank je wel,\nHet Comfortliving-team`,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                                <h2 style="color: #333;">Verifieer je e-mailadres</h2>
+                                <p>Hallo ${voornaam} ${achternaam},</p>
+                                <p>Verifieer je e-mailadres door op de onderstaande knop te klikken:</p>
+                                <p style="text-align: center;">
+                                    <a 
+                                        href="${verificationLink}"
+                                        style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 5px;"
+                                    >
+                                        Verifieer e-mailadres
+                                    </a>
+                                </p>
+                                <p>Als je geen account hebt aangemaakt, kun je deze e-mail negeren.</p>
+                                <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                            </div>
+                        `,
+                    };
+
+                    // Send the verification email
+                    try {
+                        await transporter.sendMail(mailOptions);
+                        console.log('Verification email sent to:', email);
+                    } catch (mailError) {
+                        console.error('Error sending email:', mailError);
+                    }
+                    
+
+                    res.json({
+                        message: 'Klant succesvol geregistreerd. Verifieer je e-mailadres om in te loggen.',
+                        id: results.insertId,
+                        email,
+                        voornaam,
+                        tussenvoegsel,
+                        achternaam,
+                        geslacht,
+                        geboortedatum,
+                        huidig_woonadres,
+                        telefoonnummer,
+                    });
+                }
+            );
+        });
+    } catch (err) {
+        console.error('Error hashing password: ', err);
+        res.status(500).send('Error occurred during registration.');
+    }
 });
-
 app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
     const userId = req.params.id;
     db.query('SELECT * FROM klanten WHERE id = ?', [userId], (err, results) => {
@@ -165,65 +284,32 @@ app.get('/klanten/:id', apiKeyMiddleware, (req, res) => {
         res.json(user);
     });
 });
+app.post('/klanten/login', async (req, res) => {
+    const { email, wachtwoord } = req.body;
 
-app.post('/klanten', async (req, res) => {
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    db.query('SELECT * FROM klanten WHERE email = ?', [email], async (err, results) => {
+        if (err) return res.status(500).send('Er is een fout opgetreden.');
+        
+        if (results.length === 0) return res.status(400).send('Gebruiker niet gevonden.');
 
-    try {
-        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
-        db.query(
-            'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
-            async (err, results) => {
-                if (err) {
-                    return res.status(500).send(err);
-                }
+        const klant = results[0];
 
-                // Create the verification link
-                const verificationLink = `http://api.22literverf.store/verify-email/${results.insertId}`;
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, klant.wachtwoord);
+            if (!isMatch) return res.status(400).send('Onjuist wachtwoord.');
 
-                // Email options
-                const mailOptions = {
-                    from: '"Comfortliving" <your-email@example.com>',
-                    to: email,
-                    subject: 'Verify Your Email Address',
-                    html: `<p>Hello ${voornaam},</p><p>Please verify your email by clicking the link: <a href="${verificationLink}">Verify Email</a></p>`
-                };
-
-                // Send the email
-                try {
-                    await transporter.sendMail(mailOptions);
-                    console.log('Verification email sent to:', email);
-                } catch (mailError) {
-                    console.error('Error sending email:', mailError);
-                }
-
-                // Send success message to frontend
-                res.json({
-                    success: true,
-                    message: `Registratie succesvol! Welkom, ${voornaam}. Controleer je e-mail om je account te verifiëren.`,
-                    klant: {
-                        id: results.insertId,
-                        email,
-                        voornaam,
-                        tussenvoegsel,
-                        achternaam,
-                        geslacht,
-                        geboortedatum,
-                        huidig_woonadres,
-                        telefoonnummer
-                    }
-                });
-            }
-        );
-    } catch (err) {
-        console.error('Error hashing password: ', err);
-        res.status(500).send('Error occurred during registration.');
-    }
+            delete klant.wachtwoord; // Remove the password from the response
+            res.json(klant);
+        } catch (compareError) {
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
+    });
 });
 
 
-app.get('/verify-email/:id', apiKeyMiddleware, (req, res) => {
+
+
+app.get('/verify-email/:id', (req, res) => {
     const klantId = req.params.id;
     const currentDate = new Date();
 
@@ -276,12 +362,12 @@ app.delete('/klanten/:id', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
+app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
     const { id } = req.params;
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats, wachtwoord } = req.body;
 
     // Haal de bestaande klantgegevens op
-    db.query('SELECT * FROM klanten WHERE id = ?', [id], (err, results) => {
+    db.query('SELECT * FROM klanten WHERE id = ?', [id], async (err, results) => {
         if (err) {
             return res.status(500).send(err);
         }
@@ -291,84 +377,76 @@ app.put('/klanten/:id', apiKeyMiddleware, (req, res) => {
 
         const klant = results[0];
 
-        // Alleen de velden bijwerken die zijn meegegeven, de rest behouden
-        const updatedKlant = {
-            email: email || klant.email,
-            voornaam: voornaam || klant.voornaam,
-            tussenvoegsel: tussenvoegsel || klant.tussenvoegsel,
-            achternaam: achternaam || klant.achternaam,
-            geslacht: geslacht || klant.geslacht,
-            geboortedatum: geboortedatum || klant.geboortedatum,
-            huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
-            straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
-            telefoonnummer: telefoonnummer || klant.telefoonnummer
-        };
-
-        // Update de klant in de database
-        db.query(
-            'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ? WHERE id = ?',
-            [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, id],
-            (err, updateResults) => {
+        // Check if email is being updated and if it already exists in another klant's record
+        if (email && email !== klant.email) {
+            db.query('SELECT * FROM klanten WHERE email = ?', [email], (err, emailResults) => {
                 if (err) {
-                    return res.status(500).send(err);
+                    return res.status(500).send('Databasefout bij het controleren van e-mail.');
                 }
-                res.json({
-                    message: 'Klantgegevens succesvol bijgewerkt',
-                    id,
-                    ...updatedKlant
-                });
+
+                if (emailResults.length > 0) {
+                    return res.status(400).send('Een klant met dit e-mailadres bestaat al.');
+                }
+
+                // Proceed with the update if the email is valid
+                updateKlantData();
+            });
+        } else {
+            // If email is not updated or it is valid, continue to update
+            updateKlantData();
+        }
+
+        // Function to update klant data
+        async function updateKlantData() {
+            // Only update the password if it's provided
+            let updatedPassword = klant.wachtwoord;
+            if (wachtwoord) {
+                // Validate password strength
+                if (!validatePassword(wachtwoord)) {
+                    return res.status(400).send('Wachtwoord voldoet niet aan de vereisten. Minimaal 8 tekens, inclusief hoofdletter, kleine letter, nummer en speciaal teken.');
+                }
+
+                // Hash the new password
+                updatedPassword = await bcrypt.hash(wachtwoord, 10);
             }
-        );
+
+            // Only update the fields that are provided in the request
+            const updatedKlant = {
+                email: email || klant.email,
+                voornaam: voornaam || klant.voornaam,
+                tussenvoegsel: tussenvoegsel || klant.tussenvoegsel,
+                achternaam: achternaam || klant.achternaam,
+                geslacht: geslacht || klant.geslacht,
+                geboortedatum: geboortedatum || klant.geboortedatum,
+                huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
+                straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
+                telefoonnummer: telefoonnummer || klant.telefoonnummer,
+                wachtwoord: updatedPassword, // Set the hashed password if it was updated
+            };
+
+            // Update the klant in the database
+            db.query(
+                'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ?, wachtwoord = ? WHERE id = ?',
+                [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, updatedKlant.wachtwoord, id],
+                (err, updateResults) => {
+                    if (err) {
+                        return res.status(500).send(err);
+                    }
+                    res.json({
+                        message: 'Klantgegevens succesvol bijgewerkt',
+                        id,
+                        ...updatedKlant
+                    });
+                }
+            );
+        }
     });
 });
 
-// app.post('/request-password-reset', (req, res) => {
-//     const { email } = req.body;
-
-//     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
-//         if (err) {
-//             return res.status(500).send('Internal Server Error');
-//         }
-//         if (results.length === 0) {
-//             return res.status(404).send('No user found with this email');
-//         }
-
-//         const userId = results[0].id;
-
-//         const token = new Date().getTime().toString();  // Token created from timestamp
-
-//         // Store the plain token (not hashed)
-//         const tokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-//         db.query(
-//             'INSERT INTO tokens (user_id, token, verval_datum) VALUES (?, ?, ?)',
-//             [userId, token, tokenExpiry],
-//             (err) => {
-//                 if (err) {
-//                     return res.status(500).send('Error saving token to the database');
-//                 }
-
-//                 // Send the reset email with the plain token in the link
-//                 const mailOptions = {
-//                     from: process.env.EMAIL_USER,
-//                     to: email,
-//                     subject: 'Password Reset Request',
-//                     text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${token}`,
-//                 };
-
-//                 transporter.sendMail(mailOptions, (err) => {
-//                     if (err) {
-//                         return res.status(500).send('Error sending the email');
-//                     }
-//                     res.json({ message: 'Password reset email sent successfully' });
-//                 });
-//             }
-//         );
-//     });
-// });
 
 
-app.post('/request-password-reset', (req, res) => {
+
+app.post('/request-password-reset',apiKeyMiddleware, (req, res) => {
     const { email } = req.body;
 
     db.query('SELECT id FROM klanten WHERE email = ?', [email], (err, results) => {
@@ -404,9 +482,27 @@ app.post('/request-password-reset', (req, res) => {
                     const mailOptions = {
                         from: process.env.EMAIL_USER,
                         to: email,
-                        subject: 'Password Reset Request',
-                        text: `To reset your password, click the link: http://localhost:3000/reset-password?token=${plainToken}`,
+                        subject: 'Stel je wachtwoord opnieuw in',
+                        text: `Klik op de volgende link om je wachtwoord opnieuw in te stellen: http://localhost:3000/reset-password?token=${plainToken}`,
+                        html: `
+                            <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                                <h2 style="color: #333;">Wachtwoord opnieuw instellen</h2>
+                                <p>Hallo,</p>
+                                <p>Je hebt een verzoek ingediend om je wachtwoord opnieuw in te stellen. Klik op de onderstaande knop om dit proces te voltooien:</p>
+                                <p style="text-align: center;">
+                                    <a 
+                                        href="http://localhost:3000/reset-password?token=${plainToken}"
+                                        style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #007BFF; color: #fff; text-decoration: none; border-radius: 5px;"
+                                    >
+                                        Wachtwoord resetten
+                                    </a>
+                                </p>
+                                <p>Als je geen wachtwoordreset hebt aangevraagd, kun je deze e-mail negeren.</p>
+                                <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                            </div>
+                        `,
                     };
+                    
 
                     transporter.sendMail(mailOptions, (err) => {
                         if (err) {
@@ -420,77 +516,7 @@ app.post('/request-password-reset', (req, res) => {
     });
 });
 
-// app.post('/reset-password', (req, res) => {
-//     const { token, newPassword } = req.body;
 
-    
-
-//     db.query('SELECT * FROM tokens WHERE token = ?', [token], (err, results) => {
-//         if (err) {
-//             return res.status(500).send('Internal Server Error');
-//         }
-
-//         if (results.length === 0) {
-            
-//             return res.status(400).send('Invalid or expired token');
-//         }
-
-//         const tokenData = results[0];
-
-//         // Log the token stored in the database
-        
-
-//         const currentTime = new Date();
-//         if (currentTime > new Date(tokenData.verval_datum)) {
-            
-//             return res.status(400).send('Token has expired');
-//         }
-
-//         // Directly compare the plain token
-//         if (token !== tokenData.token) {
-           
-//             return res.status(400).send('Invalid or expired token');
-//         }
-
-//         // If token matches, proceed with password reset
-        
-
-//         db.query('SELECT * FROM klanten WHERE id = ?', [tokenData.user_id], (err, userResults) => {
-//             if (err) {
-//                 return res.status(500).send('Internal Server Error');
-//             }
-
-//             if (userResults.length === 0) {
-//                 return res.status(404).send('User not found');
-//             }
-
-//             const user = userResults[0];
-
-//             // Hash the new password
-//             bcrypt.hash(newPassword, 10, (err, hashedPassword) => {
-//                 if (err) {
-//                     return res.status(500).send('Error hashing password');
-//                 }
-
-//                 // Update the user's password
-//                 db.query('UPDATE klanten SET wachtwoord = ? WHERE id = ?', [hashedPassword, user.id], (err) => {
-//                     if (err) {
-//                         return res.status(500).send('Error updating password');
-//                     }
-
-//                     // Optionally, delete the token after it's used
-//                     db.query('DELETE FROM tokens WHERE token = ?', [token], (err) => {
-//                         if (err) {
-                            
-//                         }
-
-//                         res.json({ message: 'Password reset successfully' });
-//                     });
-//                 });
-//             });
-//         });
-//     });
-// });
 
 app.post('/reset-password', (req, res) => {
     const { token, newPassword } = req.body;
@@ -638,6 +664,34 @@ app.post('/panden', apiKeyMiddleware, (req, res) => {
         res.json({ id: results.insertId, postcode, straat, huisnummer, plaats, langitude, altitude });
     });
 });
+app.put('/panden/:id', apiKeyMiddleware, (req, res) => {
+    const id = req.params.id;
+    const { postcode, straat, huisnummer, plaats, langitude, altitude } = req.body;
+
+    // Check if all fields are provided
+    if (!postcode || !straat || !huisnummer || !plaats || !langitude || !altitude) {
+        return res.status(400).send({ message: 'Alle velden zijn verplicht.' });
+    }
+
+    db.query(
+        `UPDATE panden 
+         SET postcode = ?, straat = ?, huisnummer = ?, plaats = ?, langitude = ?, altitude = ? 
+         WHERE id = ?`,
+        [postcode, straat, huisnummer, plaats, langitude, altitude, id],
+        (err, results) => {
+            if (err) {
+                return res.status(500).send({ message: 'Er is een fout opgetreden tijdens het updaten van het pand.', error: err });
+            }
+
+            if (results.affectedRows === 0) {
+                return res.status(404).send({ message: 'Pand niet gevonden.' });
+            }
+
+            res.json({ message: 'Pand succesvol bijgewerkt.', id, postcode, straat, huisnummer, plaats, langitude, altitude });
+        }
+    );
+});
+
 
 app.delete('/panden/:id', apiKeyMiddleware, (req, res) => {
     const id = req.params.id;
@@ -849,121 +903,191 @@ app.post('/medewerkers', async (req, res) => {
     }
 });
 
-app.post('/medewerker/login', async (req, res) => {
-    const { email, wachtwoord } = req.body;
+app.post('/medewerkers', async (req, res) => {
+    const {
+        voornaam,
+        tussenvoegsel,
+        achternaam,
+        email,
+        contract_uren,
+        geboortedatum,
+        wachtwoord,
+        telefoonnummer,
+        geslacht,
+        contract_verval_datum,
+        huidig_adres,
+        opmerkingen,
+    } = req.body;
 
-    db.query('SELECT * FROM medewerkers WHERE email = ?', [email], async (err, results) => {
-        if (err) {
-            
-            return res.status(500).send('Er is een fout opgetreden.');
-        }
+    // Validate password
+    if (!validatePassword(wachtwoord)) {
+        return res.status(400).send('Wachtwoord voldoet niet aan de vereisten. Minimaal 8 tekens, inclusief hoofdletter, kleine letter, nummer en speciaal teken.');
+    }
 
-        if (results.length === 0) {
-            return res.status(400).send('Medewerker niet gevonden.');
-        }
-
-        const medewerker = results[0];
-
-        try {
-            const isMatch = await bcrypt.compare(wachtwoord, medewerker.wachtwoord);
-            
-
-            if (!isMatch) {
-                return res.status(400).send('Onjuist wachtwoord.');
+    try {
+        // Check if email already exists
+        db.query('SELECT * FROM medewerkers WHERE email = ?', [email], async (err, results) => {
+            if (err) {
+                return res.status(500).send('Databasefout bij het controleren van e-mail.');
             }
 
-            // Verwijder het wachtwoord uit de medewerkergegevens voordat je ze terugstuurt
-            delete medewerker.wachtwoord;
+            if (results.length > 0) {
+                return res.status(400).send('Een medewerker met dit e-mailadres bestaat al.');
+            }
 
-            // Log de volledige medewerkersgegevens in de console
-            
+            // Hash the password
+            const hashedPassword = await bcrypt.hash(wachtwoord, 10);
 
-            // Stuur de volledige medewerkersgegevens terug als JSON
-            res.json(medewerker);
-        } catch (compareError) {
-            
-            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
-        }
-    });
+            // Insert medewerker
+            db.query(
+                `INSERT INTO medewerkers 
+                (voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [
+                    voornaam,
+                    tussenvoegsel,
+                    achternaam,
+                    email,
+                    contract_uren,
+                    geboortedatum,
+                    hashedPassword,
+                    telefoonnummer,
+                    geslacht,
+                    contract_verval_datum,
+                    huidig_adres,
+                    opmerkingen,
+                ],
+                (err, results) => {
+                    if (err) {
+                        return res.status(500).send('Databasefout bij het toevoegen van medewerker.');
+                    }
+
+                    res.json({
+                        id: results.insertId,
+                        voornaam,
+                        tussenvoegsel,
+                        achternaam,
+                        email,
+                        contract_uren,
+                        geboortedatum,
+                        telefoonnummer,
+                        geslacht,
+                        contract_verval_datum,
+                        huidig_adres,
+                        opmerkingen,
+                    });
+                }
+            );
+        });
+    } catch (err) {
+        res.status(500).send('Er is een fout opgetreden.');
+    }
 });
 
 app.put('/medewerkers/:id', async (req, res) => {
-    const { voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen } = req.body;
+    const {
+        voornaam,
+        tussenvoegsel,
+        achternaam,
+        email,
+        contract_uren,
+        geboortedatum,
+        wachtwoord,
+        telefoonnummer,
+        geslacht,
+        contract_verval_datum,
+        huidig_adres,
+        opmerkingen,
+    } = req.body;
     const medewerkerId = req.params.id;
 
     try {
-        // Stap 1: Haal de huidige gegevens van de medewerker op
+        
         db.query('SELECT * FROM medewerkers WHERE id = ?', [medewerkerId], async (err, rows) => {
             if (err) {
-                return res.status(500).send(err);
+                return res.status(500).send('Databasefout bij het ophalen van medewerkergegevens.');
             }
             if (rows.length === 0) {
-                return res.status(404).send('Medewerker niet gevonden');
+                return res.status(404).send('Medewerker niet gevonden.');
             }
 
-            // Huidige gegevens
             const currentData = rows[0];
 
-            // Stap 2: Bepaal de waarden die geüpdatet moeten worden (gebruik huidige waarden indien niet meegegeven)
-            const updatedData = {
-                voornaam: voornaam || currentData.voornaam,
-                tussenvoegsel: tussenvoegsel || currentData.tussenvoegsel,
-                achternaam: achternaam || currentData.achternaam,
-                email: email || currentData.email,
-                contract_uren: contract_uren || currentData.contract_uren,
-                geboortedatum: geboortedatum || currentData.geboortedatum,
-                wachtwoord: wachtwoord ? await bcrypt.hash(wachtwoord, 10) : currentData.wachtwoord, // hash het wachtwoord indien meegegeven
-                telefoonnummer: telefoonnummer || currentData.telefoonnummer,
-                geslacht: geslacht || currentData.geslacht,
-                contract_verval_datum: contract_verval_datum || currentData.contract_verval_datum,
-                huidig_adres: huidig_adres || currentData.huidig_adres,
-                opmerkingen: opmerkingen || currentData.opmerkingen
-            };
+            
+            if (wachtwoord && !validatePassword(wachtwoord)) {
+                return res.status(400).send('Wachtwoord voldoet niet aan de vereisten. Minimaal 8 tekens, inclusief hoofdletter, kleine letter, nummer en speciaal teken.');
+            }
 
-            // Stap 3: Update-query uitvoeren met de bijgewerkte waarden
-            const query = `
-                UPDATE medewerkers 
-                SET 
-                    voornaam = ?, 
-                    tussenvoegsel = ?, 
-                    achternaam = ?, 
-                    email = ?, 
-                    contract_uren = ?, 
-                    geboortedatum = ?, 
-                    wachtwoord = ?, 
-                    telefoonnummer = ?, 
-                    geslacht = ?, 
-                    contract_verval_datum = ?, 
-                    huidig_adres = ?, 
-                    opmerkingen = ?
-                WHERE id = ?
-            `;
-
-            const values = [
-                updatedData.voornaam,
-                updatedData.tussenvoegsel,
-                updatedData.achternaam,
-                updatedData.email,
-                updatedData.contract_uren,
-                updatedData.geboortedatum,
-                updatedData.wachtwoord,
-                updatedData.telefoonnummer,
-                updatedData.geslacht,
-                updatedData.contract_verval_datum,
-                updatedData.huidig_adres,
-                updatedData.opmerkingen,
-                medewerkerId
-            ];
-
-            db.query(query, values, (err, results) => {
+            
+            db.query('SELECT * FROM medewerkers WHERE email = ? AND id != ?', [email, medewerkerId], async (err, results) => {
                 if (err) {
-                    return res.status(500).send(err);
+                    return res.status(500).send('Databasefout bij het controleren van e-mail.');
                 }
-                res.json({ message: 'Medewerker succesvol geüpdatet' });
+
+                if (results.length > 0) {
+                    return res.status(400).send('Een andere medewerker gebruikt dit e-mailadres al.');
+                }
+
+               
+                const updatedData = {
+                    voornaam: voornaam || currentData.voornaam,
+                    tussenvoegsel: tussenvoegsel || currentData.tussenvoegsel,
+                    achternaam: achternaam || currentData.achternaam,
+                    email: email || currentData.email,
+                    contract_uren: contract_uren || currentData.contract_uren,
+                    geboortedatum: geboortedatum || currentData.geboortedatum,
+                    wachtwoord: wachtwoord ? await bcrypt.hash(wachtwoord, 10) : currentData.wachtwoord,
+                    telefoonnummer: telefoonnummer || currentData.telefoonnummer,
+                    geslacht: geslacht || currentData.geslacht,
+                    contract_verval_datum: contract_verval_datum || currentData.contract_verval_datum,
+                    huidig_adres: huidig_adres || currentData.huidig_adres,
+                    opmerkingen: opmerkingen || currentData.opmerkingen,
+                };
+
+                
+                const query = `
+                    UPDATE medewerkers 
+                    SET 
+                        voornaam = ?, 
+                        tussenvoegsel = ?, 
+                        achternaam = ?, 
+                        email = ?, 
+                        contract_uren = ?, 
+                        geboortedatum = ?, 
+                        wachtwoord = ?, 
+                        telefoonnummer = ?, 
+                        geslacht = ?, 
+                        contract_verval_datum = ?, 
+                        huidig_adres = ?, 
+                        opmerkingen = ?
+                    WHERE id = ?
+                `;
+                const values = [
+                    updatedData.voornaam,
+                    updatedData.tussenvoegsel,
+                    updatedData.achternaam,
+                    updatedData.email,
+                    updatedData.contract_uren,
+                    updatedData.geboortedatum,
+                    updatedData.wachtwoord,
+                    updatedData.telefoonnummer,
+                    updatedData.geslacht,
+                    updatedData.contract_verval_datum,
+                    updatedData.huidig_adres,
+                    updatedData.opmerkingen,
+                    medewerkerId,
+                ];
+
+                db.query(query, values, (err, results) => {
+                    if (err) {
+                        return res.status(500).send('Databasefout bij het bijwerken van medewerkergegevens.');
+                    }
+                    res.json({ message: 'Medewerker succesvol geüpdatet.' });
+                });
             });
         });
     } catch (err) {
-        res.status(500).send('Error updating medewerker');
+        res.status(500).send('Er is een fout opgetreden.');
     }
 });
 
