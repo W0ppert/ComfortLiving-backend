@@ -873,11 +873,11 @@ app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
         
     };
 
-    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid, ) VALUES (?, ?, ?, ?)';
+    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid ) VALUES (?, ?, ?, ?)';
 
     db.query(
         query, 
-        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid, parsedData.bezichtiging], 
+        [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid], 
         (err, results) => {
             if (err) {
                 console.error('Database error:', err);
@@ -886,7 +886,7 @@ app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
                     details: err.message 
                 });
             }
-            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid, parsedData.bezichtiging]);
+            console.log('4. Query uitgevoerd met waarden:', [parsedData.hoeveel_personen, parsedData.jaar_inkomen, parsedData.userid, parsedData.pandid]);
             res.status(201).json({ 
                 message: 'Inschrijving succesvol',
                 insertedData: parsedData,
