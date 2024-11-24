@@ -185,7 +185,22 @@ app.get('/klanten', apiKeyMiddleware, (req, res) => {
 
 
 app.post('/klanten', apiKeyMiddleware, async (req, res) => {
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord } = req.body;
+    const { 
+        email, 
+        voornaam, 
+        tussenvoegsel, 
+        achternaam, 
+        geslacht, 
+        geboortedatum, 
+        huidig_woonadres, 
+        telefoonnummer, 
+        bruto_jaarinkomen, 
+        bewijs_jaarinkomen, 
+        voorkeur_plaats, 
+        straal_voorkeurs_plaats, 
+        wachtwoord, 
+        opmerkingen 
+    } = req.body;
 
     // Validate password strength
     if (!validatePassword(wachtwoord)) {
@@ -208,8 +223,8 @@ app.post('/klanten', apiKeyMiddleware, async (req, res) => {
 
             // Insert the new klant
             db.query(
-                'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, wachtwoord) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, hashedPassword],
+                'INSERT INTO klanten (email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, bruto_jaarinkomen, bewijs_jaarinkomen, voorkeur_plaats, straal_voorkeurs_plaats, wachtwoord, opmerkingen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, bruto_jaarinkomen, bewijs_jaarinkomen, voorkeur_plaats, straal_voorkeurs_plaats, hashedPassword, opmerkingen],
                 async (err, results) => {
                     if (err) {
                         return res.status(500).send(err);
@@ -263,6 +278,11 @@ app.post('/klanten', apiKeyMiddleware, async (req, res) => {
                         geboortedatum,
                         huidig_woonadres,
                         telefoonnummer,
+                        bruto_jaarinkomen,
+                        bewijs_jaarinkomen,
+                        voorkeur_plaats,
+                        straal_voorkeurs_plaats,
+                        opmerkingen,
                     });
                 }
             );
