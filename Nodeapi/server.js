@@ -783,6 +783,12 @@ app.post('/servicetype', apiKeyMiddleware, (req, res) => {
     });
 });
 
+app.get('/servicetype', apiKeyMiddleware, (req, res) => {
+    db.query('SELECT * FROM servicetype', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
 
 app.get('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek WHERE id = ?', (err, results) => {
@@ -791,14 +797,6 @@ app.get('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
-    const { omschrijving } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
-    [omschrijving], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving });
-    });
-});
 
 app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
