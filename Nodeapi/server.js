@@ -364,7 +364,7 @@ app.delete('/klanten/:id', apiKeyMiddleware, (req, res) => {
 
 app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
     const { id } = req.params;
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats, wachtwoord } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats, wachtwoord, bruto_jaarinkomen } = req.body;
 
     // Haal de bestaande klantgegevens op
     db.query('SELECT * FROM klanten WHERE id = ?', [id], async (err, results) => {
@@ -421,13 +421,14 @@ app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
                 huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
                 straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
                 telefoonnummer: telefoonnummer || klant.telefoonnummer,
+                bruto_jaarinkomen: bruto_jaarinkomen !== undefined ? bruto_jaarinkomen : klant.bruto_jaarinkomen, // Update income if provided
                 wachtwoord: updatedPassword, // Set the hashed password if it was updated
             };
 
             // Update the klant in the database
             db.query(
-                'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ?, wachtwoord = ? WHERE id = ?',
-                [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, updatedKlant.wachtwoord, id],
+                'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ?, bruto_jaarinkomen = ?, wachtwoord = ? WHERE id = ?',
+                [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, updatedKlant.bruto_jaarinkomen, updatedKlant.wachtwoord, id],
                 (err, updateResults) => {
                     if (err) {
                         return res.status(500).send(err);
@@ -440,6 +441,120 @@ app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
                 }
             );
         }
+    });
+});
+
+app.post('/klanten/resend-verification/:id', apiKeyMiddleware, async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        // Fetch the user from the database
+        db.query('SELECT * FROM klanten WHERE id = ?', [id], async (err, results) => {
+            if (err) {
+                return res.status(500).send('Databasefout bij het ophalen van klantgegevens.');
+            }
+
+            if (results.length === 0) {
+                return res.status(404).send('Klant niet gevonden.');
+            }
+
+            const klant = results[0];
+
+            // Create the verification link
+            const verificationLink = `http://api.22literverf.store/verify-email/${klant.id}`;
+
+            // Email options
+            const mailOptions = {
+                from: '"Comfortliving" <your-email@example.com>',
+                to: klant.email,
+                subject: 'Verifieer je e-mailadres',
+                text: `Hallo ${klant.voornaam} ${klant.achternaam},\n\nVerifieer je e-mailadres door op de volgende link te klikken: ${verificationLink}\n\nDank je wel,\nHet Comfortliving-team`,
+                html: `
+                    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+                        <h2 style="color: #333;">Verifieer je e-mailadres</h2>
+                        <p>Hallo ${klant.voornaam} ${klant.achternaam},</p>
+                        <p>Verifieer je e-mailadres door op de onderstaande knop te klikken:</p>
+                        <p style="text-align: center;">
+                            <a 
+                                href="${verificationLink}"
+                                style="display: inline-block; padding: 10px 20px; margin: 10px 0; background-color: #28a745; color: #fff; text-decoration: none; border-radius: 5px;"
+                            >
+                                Verifieer e-mailadres
+                            </a>
+                        </p>
+                        <p>Als je geen account hebt aangemaakt, kun je deze e-mail negeren.</p>
+                        <p>Met vriendelijke groet,<br>team Comfortliving</p>
+                    </div>
+                `,
+            };
+
+            // Send the verification email
+            try {
+                await transporter.sendMail(mailOptions);
+                console.log('Verification email sent to:', klant.email);
+                return res.json({ message: 'Verificatie e-mail opnieuw verzonden. Controleer je inbox.' });
+            } catch (mailError) {
+                console.error('Error sending email:', mailError);
+                return res.status(500).send('Fout bij het verzenden van de verificatie-e-mail.');
+            }
+        });
+    } catch (err) {
+        console.error('Error occurred during resend verification email:', err);
+        res.status(500).send('Er is een fout opgetreden bij het opnieuw verzenden van de verificatie-e-mail.');
+    }
+});
+
+app.put('/klanten/:id/huidig-woonadres', apiKeyMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { huidig_woonadres } = req.body;
+
+    // Validate input
+    if (!huidig_woonadres) {
+        return res.status(400).send('Huidig woonadres is vereist.');
+    }
+
+    // Update the huidig_woonadres in the database
+    db.query('UPDATE klanten SET huidig_woonadres = ? WHERE id = ?', [huidig_woonadres, id], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send('Klant niet gevonden.');
+        }
+
+        res.json({
+            message: 'Huidig woonadres succesvol bijgewerkt. Veranderingen zijn te zien na opnieuw inloggen.',
+            id,
+            huidig_woonadres
+        });
+    });
+});
+
+app.put('/klanten/:id/bruto-jaarinkomen', apiKeyMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { bruto_jaarinkomen } = req.body;
+
+    // Validate input
+    if (typeof bruto_jaarinkomen !== 'number' || bruto_jaarinkomen < 0) {
+        return res.status(400).send('Bruto jaarinkomen moet een positief getal zijn.');
+    }
+
+    // Update the bruto_jaarinkomen in the database
+    db.query('UPDATE klanten SET bruto_jaarinkomen = ? WHERE id = ?', [bruto_jaarinkomen, id], (err, results) => {
+        if (err) {
+            return res.status(500).send(err);
+        }
+
+        if (results.affectedRows === 0) {
+            return res.status(404).send('Klant niet gevonden.');
+        }
+
+        res.json({
+            message: 'Bruto jaarinkomen succesvol bijgewerkt. Veranderingen zijn te zien na opnieuw inloggen.',
+            id,
+            bruto_jaarinkomen
+        });
     });
 });
 
@@ -801,21 +916,27 @@ app.get('/serviceverzoe/:id', apiKeyMiddleware, (req, res) => {
 });
 
 app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
-    const { omschrijving } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving) VALUES (?)', 
-    [omschrijving], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving });
+    const { omschrijving, servicetype_id } = req.body; // Include servicetype_id
+    db.query('INSERT INTO serviceverzoek (omschrijving, servicetype_id) VALUES (?, ?)', 
+    [omschrijving, servicetype_id], (err, results) => {
+        if (err) {
+            console.error(err); // Log the error for debugging
+            return res.status(500).json({ message: 'Er is een fout opgetreden bij het aanmaken van het serviceverzoek.' });
+        }
+        res.json({ id: results.insertId, omschrijving, servicetype_id });
     });
 });
 
 app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
-    const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
+    const { status, bezichtiging } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ? WHERE id = ?', 
     [status, id], (err, results) => {
-        if (err) return res.status(500).send(err);
+        if (err) {
+            console.error(err); // Log the error for debugging
+            return res.status(500).json({ message: 'Er is een fout opgetreden bij het bijwerken van het serviceverzoek.' });
+        }
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
