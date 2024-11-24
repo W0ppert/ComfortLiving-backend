@@ -790,10 +790,27 @@ app.get('/servicetype', apiKeyMiddleware, (req, res) => {
     });
 });
 
+app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
+    db.query('SELECT * FROM serviceverzoek', (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json(results);
+    });
+});
+
 app.get('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek WHERE id = ?', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
+    });
+});
+
+
+app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
+    const { omschrijving, status, servicetype_id, klantid } = req.body; // Voeg klantid en servicetype_id toe
+    db.query('INSERT INTO serviceverzoek (omschrijving, status, servicetype_id, klantid) VALUES (?, ?, ?, ?)', 
+    [omschrijving, status, servicetype_id, klantid], (err, results) => {
+        if (err) return res.status(500).send(err);
+        res.json({ id: results.insertId, omschrijving });
     });
 });
 
@@ -919,14 +936,7 @@ app.put('/inschrijvingen/:id', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
-    const { omschrijving, status, servicetype_id, klantid } = req.body; // Voeg klantid en servicetype_id toe
-    db.query('INSERT INTO serviceverzoek (omschrijving, status, servicetype_id, klantid) VALUES (?, ?, ?, ?)', 
-    [omschrijving, status, servicetype_id, klantid], (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving });
-    });
-});
+
 
 
 app.get('/medewerkers', apiKeyMiddleware, (req, res) => {
