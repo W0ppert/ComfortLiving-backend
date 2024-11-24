@@ -783,15 +783,8 @@ app.post('/servicetype', apiKeyMiddleware, (req, res) => {
     });
 });
 
-// Serviceverzoek
-app.get('/serviceverzoek', apiKeyMiddleware, (req, res) => {
-    db.query('SELECT * FROM serviceverzoek', (err, results) => {
-        if (err) return res.status(500).send(err);
-        res.json(results);
-    });
-});
 
-app.get('/serviceverzoe/:id', apiKeyMiddleware, (req, res) => {
+app.get('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     db.query('SELECT * FROM serviceverzoek WHERE id = ?', (err, results) => {
         if (err) return res.status(500).send(err);
         res.json(results);
@@ -945,29 +938,29 @@ app.get('/medewerkers', apiKeyMiddleware, (req, res) => {
     });
 });
 
-app.post('/medewerkers', async (req, res) => {
-    const { voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen } = req.body;
+// app.post('/medewerkers', async (req, res) => {
+//     const { voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen } = req.body;
 
-    try {
-        // Wachtwoord hashen
-        const hashedPassword = await bcrypt.hash(wachtwoord, 10);
+//     try {
+//         // Wachtwoord hashen
+//         const hashedPassword = await bcrypt.hash(wachtwoord, 10);
 
-        // Database-insert met gehasht wachtwoord
-        db.query(
-            'INSERT INTO medewerkers (voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-            [voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, hashedPassword, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen],
-            (err, results) => {
-                if (err) {
-                    return res.status(500).send(err);
-                }
+//         // Database-insert met gehasht wachtwoord
+//         db.query(
+//             'INSERT INTO medewerkers (voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, wachtwoord, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+//             [voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, hashedPassword, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen],
+//             (err, results) => {
+//                 if (err) {
+//                     return res.status(500).send(err);
+//                 }
 
-                res.json({ id: results.insertId, voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen });
-            }
-        );
-    } catch (err) {
-        res.status(500).send('Error hashing password');
-    }
-});
+//                 res.json({ id: results.insertId, voornaam, tussenvoegsel, achternaam, email, contract_uren, geboortedatum, telefoonnummer, geslacht, contract_verval_datum, huidig_adres, opmerkingen });
+//             }
+//         );
+//     } catch (err) {
+//         res.status(500).send('Error hashing password');
+//     }
+// });
 
 app.post('/medewerkers', async (req, res) => {
     const {
