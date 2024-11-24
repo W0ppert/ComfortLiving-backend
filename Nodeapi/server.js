@@ -26,8 +26,6 @@ const validatePassword = (password) => {
     return password.length >= minLength && hasUppercase && hasLowercase && hasNumber && hasSpecialChar;
 };
 
-
-
 // Create an Express app
 const corsOptions = {
     origin: 'http://localhost:3000', // Specifieke origin
@@ -931,11 +929,11 @@ app.put('/inschrijvingen/:id', apiKeyMiddleware, (req, res) => {
 });
 
 app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
-    const { omschrijving, status } = req.body;
-    db.query('INSERT INTO serviceverzoek (omschrijving, status) VALUES (?, ?)', 
-    [omschrijving, status], (err, results) => {
+    const { omschrijving, status, servicetype_id, klantid } = req.body; // Voeg klantid en servicetype_id toe
+    db.query('INSERT INTO serviceverzoek (omschrijving, status, servicetype_id, klantid) VALUES (?, ?, ?, ?)', 
+    [omschrijving, status, servicetype_id, klantid], (err, results) => {
         if (err) return res.status(500).send(err);
-        res.json({ id: results.insertId, omschrijving, status });
+        res.json({ id: results.insertId, omschrijving });
     });
 });
 
@@ -1171,6 +1169,28 @@ app.delete('/medewerkers/:id', apiKeyMiddleware, (req, res) => {
         }
 
         res.json({ message: 'Medewerker succesvol verwijderd' });
+    });
+});
+
+app.post('/medewerker/login', async (req, res) => {
+    const { email, wachtwoord } = req.body;
+
+    db.query('SELECT * FROM medewerkers WHERE email = ?', [email], async (err, results) => {
+        if (err) return res.status(500).send('Er is een fout opgetreden.');
+
+        if (results.length === 0) return res.status(400).send('Gebruiker niet gevonden.');
+
+        const medewerkers = results[0];
+
+        try {
+            const isMatch = await bcrypt.compare(wachtwoord, medewerkers.wachtwoord);
+            if (!isMatch) return res.status(400).send('Onjuist wachtwoord.');
+
+            delete medewerkers.wachtwoord; // Remove the password from the response
+            res.json(medewerkers);
+        } catch (compareError) {
+            return res.status(500).send('Er is een fout opgetreden tijdens het vergelijken van wachtwoorden.');
+        }
     });
 });
 
