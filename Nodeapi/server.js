@@ -362,7 +362,7 @@ app.delete('/klanten/:id', apiKeyMiddleware, (req, res) => {
 
 app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
     const { id } = req.params;
-    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, straal_voorkeurs_plaats, wachtwoord } = req.body;
+    const { email, voornaam, tussenvoegsel, achternaam, geslacht, geboortedatum, huidig_woonadres, telefoonnummer, bruto_jaarinkomen, straal_voorkeurs_plaats, wachtwoord } = req.body;
 
     // Haal de bestaande klantgegevens op
     db.query('SELECT * FROM klanten WHERE id = ?', [id], async (err, results) => {
@@ -417,15 +417,16 @@ app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
                 geslacht: geslacht || klant.geslacht,
                 geboortedatum: geboortedatum || klant.geboortedatum,
                 huidig_woonadres: huidig_woonadres || klant.huidig_woonadres,
-                straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
                 telefoonnummer: telefoonnummer || klant.telefoonnummer,
+                bruto_jaarinkomen: bruto_jaarinkomen || klant.bruto_jaarinkomen,
+                straal_voorkeurs_plaats: straal_voorkeurs_plaats || klant.straal_voorkeurs_plaats,
                 wachtwoord: updatedPassword, // Set the hashed password if it was updated
             };
 
             // Update the klant in the database
             db.query(
-                'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, straal_voorkeurs_plaats = ?, wachtwoord = ? WHERE id = ?',
-                [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.straal_voorkeurs_plaats, updatedKlant.wachtwoord, id],
+                'UPDATE klanten SET email = ?, voornaam = ?, tussenvoegsel = ?, achternaam = ?, geslacht = ?, geboortedatum = ?, huidig_woonadres = ?, telefoonnummer = ?, bruto_jaarinkomen = ?, straal_voorkeurs_plaats = ?, wachtwoord = ? WHERE id = ?',
+                [updatedKlant.email, updatedKlant.voornaam, updatedKlant.tussenvoegsel, updatedKlant.achternaam, updatedKlant.geslacht, updatedKlant.geboortedatum, updatedKlant.huidig_woonadres, updatedKlant.telefoonnummer, updatedKlant.bruto_jaarinkomen, updatedKlant.straal_voorkeurs_plaats, updatedKlant.wachtwoord, id],
                 (err, updateResults) => {
                     if (err) {
                         return res.status(500).send(err);
@@ -440,6 +441,7 @@ app.put('/klanten/:id', apiKeyMiddleware, async (req, res) => {
         }
     });
 });
+
 
 
 
@@ -817,11 +819,14 @@ app.post('/serviceverzoek', apiKeyMiddleware, (req, res) => {
 
 app.put('/serviceverzoek/:id', apiKeyMiddleware, (req, res) => {
     const { id } = req.params;  // Haal de id uit de URL
-    const { status } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
+    const { status, bezichtiging } = req.body;  // Haal de nieuwe status en bezichtiging uit het verzoek
 
-    db.query('UPDATE serviceverzoek SET status = ?,  WHERE id = ?', 
+    db.query('UPDATE serviceverzoek SET status = ? WHERE id = ?', 
     [status, id], (err, results) => {
-        if (err) return res.status(500).send(err);
+        if (err) {
+            console.error(err); // Log the error for debugging
+            return res.status(500).json({ message: 'Er is een fout opgetreden bij het bijwerken van het serviceverzoek.' });
+        }
         if (results.affectedRows === 0) {
             return res.status(404).json({ message: 'Serviceverzoek niet gevonden' });
         }
@@ -856,7 +861,7 @@ app.get('/inschrijvingen', apiKeyMiddleware, (req, res) => {
 app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
     
 
-    const { hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging } = req.body;
+    const { hoeveel_personen, jaar_inkomen, userid, pandid } = req.body;
 
 
     // Converteer expliciet naar integers/numbers
@@ -865,10 +870,10 @@ app.post('/inschrijvingen', apiKeyMiddleware, (req, res) => {
         jaar_inkomen: parseFloat(jaar_inkomen),
         userid: parseInt(userid),
         pandid: parseInt(pandid),
-        bezichtiging: parseInt(bezichtiging)
+        
     };
 
-    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid, bezichtiging) VALUES (?, ?, ?, ?, ?)';
+    const query = 'INSERT INTO inschrijvingen (hoeveel_personen, jaar_inkomen, userid, pandid, ) VALUES (?, ?, ?, ?)';
 
     db.query(
         query, 
